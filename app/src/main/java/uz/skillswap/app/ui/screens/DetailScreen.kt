@@ -1,0 +1,192 @@
+package uz.skillswap.app.ui.screens
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
+import uz.skillswap.app.ui.SkillSwapViewModel
+import uz.skillswap.app.ui.components.AppCard
+import uz.skillswap.app.ui.components.EmojiTile
+import uz.skillswap.app.ui.components.GradientHeader
+import uz.skillswap.app.ui.components.Green
+import uz.skillswap.app.ui.components.SectionTitle
+import uz.skillswap.app.ui.components.StarRow
+import uz.skillswap.app.ui.components.levelMedal
+import uz.skillswap.app.util.formatDate
+
+private val DAY_FULL = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+@Composable
+fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBooked: () -> Unit) {
+    val offer by remember(offerId) { vm.offer(offerId) }.collectAsStateWithLifecycle(null)
+    val slots by remember(offerId) { vm.slots(offerId) }.collectAsStateWithLifecycle(emptyList())
+    val reviews by remember(offerId) { vm.reviews(offerId) }.collectAsStateWithLifecycle(emptyList())
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    var bookedText by remember { mutableStateOf<String?>(null) }   // set after a successful booking
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+        snackbarHost = { SnackbarHost(snackbar, Modifier.navigationBarsPadding()) }
+    ) { padding ->
+        val o = offer
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
+            GradientHeader {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                if (o != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        EmojiTile(o.emoji, o.category, size = 72.dp)
+                        Column(Modifier.padding(start = 16.dp)) {
+                            Text(o.skillName, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                            Text("by ${o.teacherName}", style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.85f))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "${levelMedal(o.level)} ${o.level}  ·  ${o.category}  ·  ${ratingText(o)}",
+                        style = MaterialTheme.typography.labelLarge, color = Color.White
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+            if (o == null) return@Column
+
+            Column(
+                Modifier.navigationBarsPadding().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                AppCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SectionTitle("About this lesson")
+                        Text(o.description, style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                SectionTitle("Pick a time", Modifier.padding(top = 6.dp))
+                slots.forEach { s ->
+                    AppCard(Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(DAY_FULL[(s.day - 1).coerceIn(0, 6)], style = MaterialTheme.typography.titleSmall)
+                                Text("${s.hour.toString().padStart(2, '0')}:00",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Button(
+                                enabled = !s.isBooked,
+                                shape = RoundedCornerShape(14.dp),
+                                onClick = {
+                                    vm.book(s.id) { err ->
+                                        if (err == null) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            bookedText = "${o.skillName} with ${o.teacherName}\n" +
+                                                "${DAY_FULL[(s.day - 1).coerceIn(0, 6)]} " +
+                                                "${s.hour.toString().padStart(2, '0')}:00"
+                                        } else scope.launch { snackbar.showSnackbar(err) }
+                                    }
+                                }
+                            ) { Text(if (s.isBooked) "Taken" else "Book") }
+                        }
+                    }
+                }
+
+                SectionTitle("Reviews (${reviews.size})", Modifier.padding(top = 6.dp))
+                if (reviews.isEmpty()) {
+                    Text("No reviews yet. Be the first to learn and rate!",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+                reviews.forEach { r ->
+                    AppCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(r.learnerName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                                StarRow(r.rating)
+                            }
+                            if (r.comment.isNotBlank()) Text(r.comment, style = MaterialTheme.typography.bodyMedium)
+                            Text(formatDate(r.createdAt), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    bookedText?.let { text ->
+        BookedDialog(text = text, onDone = { bookedText = null; onBooked() })
+    }
+}
+
+/** Success feedback after a booking: a green circle pops in with a check mark. */
+@Composable
+private fun BookedDialog(text: String, onDone: () -> Unit) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val scale by animateFloatAsState(if (shown) 1f else 0f, tween(300), label = "check")
+    AlertDialog(
+        onDismissRequest = onDone,
+        icon = {
+            Box(
+                Modifier.size(64.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+                    .clip(CircleShape).background(Green),
+                contentAlignment = Alignment.Center
+            ) { Text("✓", color = Color.White, fontSize = 34.sp) }
+        },
+        title = { Text("Lesson booked!", textAlign = TextAlign.Center) },
+        text = { Text(text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
+        confirmButton = { TextButton(onClick = onDone) { Text("See my lessons") } }
+    )
+}
