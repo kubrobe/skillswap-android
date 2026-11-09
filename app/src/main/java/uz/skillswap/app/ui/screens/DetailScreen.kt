@@ -71,6 +71,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     var bookedText by remember { mutableStateOf<String?>(null) }   // set after a successful booking
+    val sync by vm.sync.collectAsStateWithLifecycle()
 
     Scaffold(
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
@@ -137,7 +138,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                                         } else scope.launch { snackbar.showSnackbar(err) }
                                     }
                                 }
-                            ) { Text(if (s.isBooked) "Taken" else "Book") }
+                            ) { Text(if (s.isBooked) "Taken" else if (sync.online) "Book · 1 🪙" else "Book") }
                         }
                     }
                 }
@@ -166,7 +167,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     }
 
     bookedText?.let { text ->
-        BookedDialog(text = text, onDone = { bookedText = null; onBooked() })
+        BookedDialog(text = text, onDone = { bookedText = null; vm.celebrate(); onBooked() })
     }
 }
 

@@ -1,6 +1,10 @@
 package uz.skillswap.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -21,7 +25,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +45,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.delay
+import uz.skillswap.app.ui.components.ConfettiOverlay
+import uz.skillswap.app.ui.components.NoticeCard
 import uz.skillswap.app.ui.screens.DetailScreen
 import uz.skillswap.app.ui.screens.HomeScreen
 import uz.skillswap.app.ui.screens.LessonsScreen
@@ -79,7 +89,26 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     val start = remember { if (vm.currentUser.value != null) Routes.HOME else Routes.LOGIN }
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+    val celebrate by vm.celebrate.collectAsStateWithLifecycle()
 
+    // Live messages from the server: show the newest one for 4 seconds
+    var noticeText by remember { mutableStateOf("") }
+    var noticeVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        vm.notices.collect { text ->
+            noticeText = text
+            noticeVisible = true
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+    LaunchedEffect(noticeText, noticeVisible) {
+        if (noticeVisible) {
+            delay(4_000)
+            noticeVisible = false
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),   // each screen handles its own insets
         bottomBar = {
@@ -137,6 +166,17 @@ fun AppNavHost(vm: SkillSwapViewModel) {
                 })
             }
         }
+    }
+
+    AnimatedVisibility(
+        visible = noticeVisible,
+        enter = slideInVertically(tween(260)) { -it } + fadeIn(tween(260)),
+        exit = slideOutVertically(tween(200)) { -it } + fadeOut(tween(200)),
+        modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(12.dp)
+    ) {
+        NoticeCard(noticeText)
+    }
+    ConfettiOverlay(celebrate)
     }
 }
 

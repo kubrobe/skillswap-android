@@ -1,6 +1,7 @@
 package uz.skillswap.app.data.remote
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -25,7 +26,16 @@ class OfflineException(message: String = "You are offline. Connect to the intern
 /** Result of login / register: the session token and who logged in. */
 class AuthResult(val token: String, val user: User)
 
-/** Everything the app downloads in one request; it is written into Room as one transaction. */
+/** One line of the time-bank history, e.g. +1 "taught" Python basics. */
+class WalletLine(val amount: Int, val reason: String, val skillName: String, val createdAt: Long)
+
+/** Skill credits: teach 1 hour = +1, learn 1 hour = -1. */
+class Wallet(val balance: Int, val history: List<WalletLine>)
+
+/** Someone who teaches what I want. theyWant != null = they also want something I teach (two-way swap). */
+class Match(val offerId: Long, val teacherName: String, val skillName: String, val emoji: String, val theyWant: String?)
+
+/** Everything the app downloads in one request; the tables are written into Room as one transaction. */
 class Snapshot(
     val me: User,
     val users: List<User>,
@@ -33,7 +43,10 @@ class Snapshot(
     val offers: List<Offer>,
     val slots: List<TimeSlot>,
     val bookings: List<Booking>,
-    val reviews: List<Review>
+    val reviews: List<Review>,
+    val wallet: Wallet = Wallet(0, emptyList()),
+    val wants: List<Long> = emptyList(),
+    val matches: List<Match> = emptyList()
 )
 
 /**
@@ -89,9 +102,82 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
                 Review(id = it.getLong("id"), bookingId = it.getLong("bookingId"), offerId = it.getLong("offerId"),
                     learnerName = it.getString("learnerName"), rating = it.getInt("rating"),
                     comment = it.getString("comment"), createdAt = it.getDouble("createdAt").toLong())
+            },
+            wallet = o.optJSONObject("wallet")?.let { w ->
+                Wallet(
+                    balance = w.optInt("balance", 0),
+                    history = (w.optJSONArray("history") ?: JSONArray()).objects().map {
+                        WalletLine(amount = it.getInt("amount"), reason = it.getString("reason"),
+                            skillName = if (it.isNull("skillName")) "" else it.getString("skillName"),
+                            createdAt = it.getDouble("createdAt").toLong())
+                    }
+                )
+            } ?: Wallet(0, emptyList()),
+            wants = o.optJSONArray("wants")?.let { a -> (0 until a.length()).map { a.getLong(it) } } ?: emptyList(),
+            matches = (o.optJSONArray("matches") ?: JSONArray()).objects().map {
+                Match(offerId = it.getLong("offerId"), teacherName = it.getString("teacherName"),
+                    skillName = it.getString("skillName"), emoji = it.getString("emoji"),
+                    theyWant = if (it.isNull("theyWant")) null else it.getString("theyWant"))
             }
         )
     }
+
+    suspend fun setWants(token: String, skillIds: List<Long>) {
+        val arr = JSONArray()
+        skillIds.forEach { arr.put(it) }
+        request("POST", "/wants", token, JSONObject().put("skillIds", arr))
+    }
+
+    /** A 60-minute plan for a booked lesson. Returns (plan text, "ai" or "template"). */
+    suspend fun lessonPlan(token: String, bookingId: Long): Pair<String, String> {
+        val o = request("POST", "/bookings/$bookingId/plan", token)
+        return o.getString("plan") to o.optString("source", "template")
+    }
+
+    /**
+     * Live updates: keeps ONE HTTP connection open and calls [onEvent] for every server event
+     * ("hello", "changed", "notice"). Returns when the connection closes; the caller reconnects.
+     */
+    suspend fun listen(token: String, onEvent: suspend (String, JSONObject) -> Unit): Unit =
+        withContext(Dispatchers.IO) {
+            val conn = try {
+                URL("$baseUrl/events").openConnection() as HttpURLConnection
+            } catch (e: IOException) {
+                throw OfflineException()
+            }
+            try {
+                conn.connectTimeout = 20_000
+                conn.readTimeout = 60_000              // the server pings every 20 s; 60 s of silence = dead line
+                conn.setRequestProperty("Accept", "text/event-stream")
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                val code = conn.responseCode
+                if (code == 401) throw ApiException(401, "Please log in first")
+                if (code != 200) throw OfflineException()
+                conn.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                    var type = "message"
+                    val data = StringBuilder()
+                    while (isActive) {
+                        val line = reader.readLine() ?: break
+                        when {
+                            line.isEmpty() -> {                 // an empty line ends one event
+                                if (data.isNotEmpty()) {
+                                    val json = try { JSONObject(data.toString()) } catch (e: JSONException) { JSONObject() }
+                                    onEvent(type, json)
+                                }
+                                type = "message"
+                                data.setLength(0)
+                            }
+                            line.startsWith("event:") -> type = line.substringAfter(':').trim()
+                            line.startsWith("data:") -> data.append(line.substringAfter(':').trim())
+                        }
+                    }
+                }
+            } catch (e: IOException) {
+                throw OfflineException()
+            } finally {
+                conn.disconnect()
+            }
+        }
 
     suspend fun publishOffer(
         token: String, skillId: Long, level: String, description: String, slots: List<Pair<Int, Int>>

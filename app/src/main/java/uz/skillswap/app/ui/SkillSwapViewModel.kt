@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +26,8 @@ import uz.skillswap.app.data.Skill
 import uz.skillswap.app.data.SkillSwapRepository
 import uz.skillswap.app.data.SyncState
 import uz.skillswap.app.data.TimeSlot
+import uz.skillswap.app.data.remote.Match
+import uz.skillswap.app.data.remote.Wallet
 import uz.skillswap.app.data.User
 
 /** Holds screen state and survives screen rotation. Screens call its functions. */
@@ -35,6 +39,28 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
 
     val currentUser: StateFlow<User?> = repo.currentUser
     val sync: StateFlow<SyncState> = repo.sync          // online / offline status for the screens
+    val wallet: StateFlow<Wallet?> = repo.wallet         // skill credits (time bank)
+    val wants: StateFlow<List<Long>> = repo.wants
+    val matches: StateFlow<List<Match>> = repo.matches
+    val notices: SharedFlow<String> = repo.notices       // live banner messages
+
+    // Confetti: every +1 plays the animation once
+    private val _celebrate = MutableStateFlow(0)
+    val celebrate: StateFlow<Int> = _celebrate.asStateFlow()
+    fun celebrate() { _celebrate.value += 1 }
+
+    private var liveJob: Job? = null
+
+    /** Open the live connection (does nothing for phone-only accounts or if it is already open). */
+    fun startLive() {
+        if (liveJob?.isActive == true) return
+        liveJob = viewModelScope.launch { repo.runLiveUpdates() }
+    }
+
+    fun stopLive() {
+        liveJob?.cancel()
+        liveJob = null
+    }
 
     // search + filter inputs from the Browse screen
     val query = MutableStateFlow("")
@@ -69,6 +95,7 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
             repo.restoreSession()
             _ready.value = true
             repo.refresh()          // online account: download the newest data in the background
+            startLive()
         }
         viewModelScope.launch { repo.wakeServer() }
     }
@@ -79,23 +106,44 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
 
     // onResult(null) = success, onResult("text") = error message to show
     fun login(email: String, password: String, onResult: (String?) -> Unit) = viewModelScope.launch {
-        onResult(runCatching { repo.login(email, password).getOrThrow() }.exceptionOrNull()?.message)
+        val error = runCatching { repo.login(email, password).getOrThrow() }.exceptionOrNull()?.message
+        if (error == null) startLive()
+        onResult(error)
     }
 
     fun refresh() = viewModelScope.launch { repo.refresh() }
 
     /** The app came back to the screen (e.g. after switching apps). */
     fun onAppResumed() {
-        if (_ready.value) viewModelScope.launch { repo.refreshIfStale() }
+        if (!_ready.value) return
+        viewModelScope.launch { repo.refreshIfStale() }
+        startLive()
     }
+
+    /** The app went to the background: close the live connection to save battery. */
+    fun onAppPaused() = stopLive()
 
     fun register(name: String, email: String, password: String, onResult: (String?) -> Unit) =
         viewModelScope.launch {
-            onResult(runCatching { repo.register(name, email, password).getOrThrow() }.exceptionOrNull()?.message)
+            val error = runCatching { repo.register(name, email, password).getOrThrow() }.exceptionOrNull()?.message
+            if (error == null) startLive()
+            onResult(error)
         }
 
     fun logout() {
+        stopLive()
         viewModelScope.launch { repo.logout() }
+    }
+
+    fun setWants(skillIds: List<Long>, onResult: (String?) -> Unit) = viewModelScope.launch {
+        onResult(runCatching { repo.setWants(skillIds) }.exceptionOrNull()?.message)
+    }
+
+    /** onResult(plan, source, error) */
+    fun lessonPlan(bookingId: Long, onResult: (String?, String?, String?) -> Unit) = viewModelScope.launch {
+        runCatching { repo.lessonPlan(bookingId) }
+            .onSuccess { (plan, source) -> onResult(plan, source, null) }
+            .onFailure { onResult(null, null, it.message ?: "Could not make a plan") }
     }
 
     fun updateProfile(name: String, bio: String, onResult: (String?) -> Unit) = viewModelScope.launch {

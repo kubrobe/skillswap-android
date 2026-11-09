@@ -46,6 +46,8 @@ import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
 import uz.skillswap.app.ui.components.CountUpText
 import uz.skillswap.app.ui.components.Gold
+import uz.skillswap.app.ui.components.Green
+import uz.skillswap.app.data.remote.WalletLine
 import uz.skillswap.app.ui.components.GradientHeader
 import uz.skillswap.app.ui.components.Pill
 import uz.skillswap.app.ui.components.Red
@@ -63,6 +65,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit) {
     val teaching by vm.teaching.collectAsStateWithLifecycle()
     val myOffers by vm.myOffers.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
+    val wallet by vm.wallet.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
     val name = user?.fullName ?: ""
 
@@ -155,6 +158,28 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit) {
                 }
             }
 
+            wallet?.let { w ->
+                AppCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SectionTitle("🪙 Time bank")
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            CountUpText(w.balance, MaterialTheme.typography.displaySmall, Gold)
+                            Text("  credits", style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(bottom = 6.dp))
+                        }
+                        Text("Teach 1 hour → earn 1 credit · Learn 1 hour → spend 1. No money needed.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        w.history.take(5).forEach { h ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(walletLabel(h), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                Text(if (h.amount > 0) "+${h.amount}" else "${h.amount}",
+                                    style = MaterialTheme.typography.labelLarge, color = if (h.amount > 0) Green else Red)
+                            }
+                        }
+                    }
+                }
+            }
+
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SectionTitle("Account")
@@ -224,3 +249,12 @@ private fun EditProfileDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
+
+private fun walletLabel(h: WalletLine): String = when (h.reason) {
+    "welcome" -> "🎁 Welcome gift"
+    "booked" -> "📚 Booked ${h.skillName}"
+    "refund" -> "↩️ Refund · ${h.skillName}"
+    "taught" -> "🧑‍🏫 Taught ${h.skillName}"
+    else -> h.reason
+}
+

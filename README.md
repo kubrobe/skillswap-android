@@ -38,6 +38,14 @@ The app talks to the same Express + PostgreSQL server as the website:
 * No extra libraries: `HttpURLConnection` + `org.json` (both built into Android), calls run on `Dispatchers.IO`.
 * Without internet, login falls back to accounts saved on the phone (the offline demo data).
 
+## Hackathon features
+* 🪙 **Time bank**: teach 1 hour = +1 credit, learn 1 hour = −1. Wallet + history on Profile, balance in the header.
+* ✨ **Perfect matches**: pick what you want to learn; the app shows people who teach it — two-way swaps first.
+* 🔔 **Live updates**: book on one phone, the teacher's phone shows a banner instantly (Server-Sent Events).
+* 🤖 **AI lesson plan** for every lesson (template fallback when no AI key).
+* 🎥 **Video room** (Jitsi) and 📅 **Add to calendar** for every booked lesson.
+* 🎉 Confetti when a lesson is booked or finished.
+
 ## Demo account
 aziza@demo.uz / demo12345 (others: bobur@, dilnoza@, jasur@, nilufar@demo.uz — same password).
 The same accounts work on the website.

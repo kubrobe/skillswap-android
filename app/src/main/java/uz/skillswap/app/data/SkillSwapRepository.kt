@@ -2,15 +2,21 @@ package uz.skillswap.app.data
 
 import android.content.SharedPreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import uz.skillswap.app.data.remote.ApiClient
 import uz.skillswap.app.data.remote.ApiException
 import uz.skillswap.app.data.remote.AuthResult
+import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.OfflineException
 import uz.skillswap.app.data.remote.Snapshot
+import uz.skillswap.app.data.remote.Wallet
 import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.TokenCipher
 import uz.skillswap.app.util.Validators
@@ -42,6 +48,18 @@ class SkillSwapRepository(
 
     private val _sync = MutableStateFlow(SyncState())
     val sync: StateFlow<SyncState> = _sync.asStateFlow()
+
+    // Online-only extras from the server (not stored in Room tables)
+    private val _wallet = MutableStateFlow<Wallet?>(null)
+    val wallet: StateFlow<Wallet?> = _wallet.asStateFlow()
+    private val _wants = MutableStateFlow<List<Long>>(emptyList())
+    val wants: StateFlow<List<Long>> = _wants.asStateFlow()
+    private val _matches = MutableStateFlow<List<Match>>(emptyList())
+    val matches: StateFlow<List<Match>> = _matches.asStateFlow()
+
+    /** Live messages from the server, e.g. "Bobur booked your Python lesson". Shown as a banner. */
+    private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val notices: SharedFlow<String> = _notices.asSharedFlow()
 
     // The session token is saved ENCRYPTED (see TokenCipher) and kept in memory after the first read.
     private var cachedToken: String? = null
@@ -96,7 +114,10 @@ class SkillSwapRepository(
     suspend fun restoreSession() {
         val id = prefs.getLong(KEY_USER_ID, -1)
         if (id > 0) _currentUser.value = db.userDao().findById(id)
-        if (token != null) _sync.value = SyncState(online = true, lastSync = prefs.getLong(KEY_LAST_SYNC, 0L))
+        if (token != null) {
+            _sync.value = SyncState(online = true, lastSync = prefs.getLong(KEY_LAST_SYNC, 0L))
+            _wallet.value = Wallet(prefs.getInt(KEY_BALANCE, 0), emptyList())    // until the first sync
+        }
     }
 
     /** Download a fresh copy from the server. Safe to call any time; problems end up in [sync]. */
@@ -133,7 +154,10 @@ class SkillSwapRepository(
 
     private suspend fun applySnapshot(s: Snapshot) {
         db.syncDao().replaceAll(s.users, s.skills, s.offers, s.slots, s.bookings, s.reviews)
-        prefs.edit().putLong(KEY_LAST_SYNC, System.currentTimeMillis()).apply()
+        prefs.edit().putLong(KEY_LAST_SYNC, System.currentTimeMillis()).putInt(KEY_BALANCE, s.wallet.balance).apply()
+        _wallet.value = s.wallet
+        _wants.value = s.wants
+        _matches.value = s.matches
         _currentUser.value = db.userDao().findById(s.me.id) ?: s.me
     }
 
@@ -231,8 +255,11 @@ class SkillSwapRepository(
             seedIfEmpty()
         }
         saveToken(null)
-        prefs.edit().remove(KEY_USER_ID).remove(KEY_LAST_SYNC).apply()
+        prefs.edit().remove(KEY_USER_ID).remove(KEY_LAST_SYNC).remove(KEY_BALANCE).apply()
         _sync.value = SyncState()
+        _wallet.value = null
+        _wants.value = emptyList()
+        _matches.value = emptyList()
         _currentUser.value = null
     }
 
@@ -297,6 +324,53 @@ class SkillSwapRepository(
         return result
     }
 
+    // ---------- hackathon features (online accounts) ----------
+
+    /** Save "what I want to learn"; the server then finds perfect matches. */
+    suspend fun setWants(skillIds: List<Long>) {
+        onServer { api.setWants(it, skillIds) }
+            ?: throw IllegalStateException("Matches need an online account. Log in with internet.")
+    }
+
+    /** A 60-minute plan for a booked lesson: (plan, "ai" or "template"). */
+    suspend fun lessonPlan(bookingId: Long): Pair<String, String> {
+        val t = token ?: throw IllegalStateException("Lesson plans need an online account.")
+        return api.lessonPlan(t, bookingId)
+    }
+
+    /**
+     * Keeps a live connection to the server while the app is on screen. When anything changes,
+     * the phone downloads a fresh copy at once; personal messages go to [notices].
+     * If the line breaks (no internet, server restart) it reconnects after 2, 4, 8 ... 30 seconds.
+     */
+    suspend fun runLiveUpdates() {
+        var wait = 2_000L
+        while (true) {
+            val t = token ?: return
+            try {
+                api.listen(t) { type, data ->
+                    when (type) {
+                        "hello" -> { wait = 2_000L }
+                        "notice" -> { _notices.tryEmit(data.optString("text")) }
+                        "changed" -> refresh()
+                    }
+                    Unit
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                if (e.status == 401) {
+                    expireSession()
+                    return
+                }
+            } catch (e: Exception) {
+                // offline or the server restarted: try again below
+            }
+            delay(wait)
+            wait = (wait * 2).coerceAtMost(30_000L)
+        }
+    }
+
     private fun requireUserId(): Long =
         currentUser.value?.id ?: throw IllegalStateException("Please log in first")
 
@@ -304,6 +378,7 @@ class SkillSwapRepository(
         const val KEY_USER_ID = "user_id"
         const val KEY_TOKEN = "server_token"
         const val KEY_LAST_SYNC = "last_sync"
+        const val KEY_BALANCE = "wallet_balance"
         const val SESSION_EXPIRED = "Your session expired. Please log in again."
     }
 }

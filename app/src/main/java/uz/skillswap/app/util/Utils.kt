@@ -55,6 +55,30 @@ fun syncAgeText(nowMillis: Long, thenMillis: Long): String {
     }
 }
 
+/**
+ * The next time a weekly lesson happens (day 1 = Monday ... 7 = Sunday, hour 0-23), in [zone].
+ * Used for "Add to calendar". If the lesson is right now or already passed today, next week.
+ */
+fun nextOccurrence(nowMillis: Long, day: Int, hour: Int, zone: java.util.TimeZone): Long {
+    val target = java.util.Calendar.getInstance(zone).apply {
+        timeInMillis = nowMillis
+        set(java.util.Calendar.HOUR_OF_DAY, hour)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+    }
+    // java.util.Calendar counts SUNDAY = 1 ... SATURDAY = 7; we count Monday = 1 ... Sunday = 7
+    val wanted = if (day == 7) java.util.Calendar.SUNDAY else day + 1
+    var addDays = (wanted - target.get(java.util.Calendar.DAY_OF_WEEK) + 7) % 7
+    if (addDays == 0 && target.timeInMillis <= nowMillis) addDays = 7
+    target.add(java.util.Calendar.DAY_OF_MONTH, addDays)
+    return target.timeInMillis
+}
+
+/** A free Jitsi video room for one booking. Hard to guess, the same on both phones. */
+fun jitsiUrl(bookingId: Long, createdAt: Long): String =
+    "https://meet.jit.si/SkillSwap-$bookingId-${(createdAt % 1_000_000_000L).toString(36)}"
+
 object Validators {
     private val emailRegex = Regex("^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$")
     fun isValidEmail(email: String) = emailRegex.matches(email.trim())

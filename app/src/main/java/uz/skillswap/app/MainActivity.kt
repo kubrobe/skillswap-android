@@ -33,4 +33,9 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         vm.onAppResumed()
     }
+
+    override fun onPause() {
+        super.onPause()
+        vm.onAppPaused()
+    }
 }

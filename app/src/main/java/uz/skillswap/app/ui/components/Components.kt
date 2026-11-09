@@ -1,6 +1,17 @@
 package uz.skillswap.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.rotate
+import kotlin.random.Random
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
@@ -256,4 +267,62 @@ fun ConfirmDialog(
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Go back") } }
     )
+}
+
+// ---------- celebration + live messages ----------
+
+private class ConfettiPiece(
+    val x: Float, val vx: Float, val vy: Float, val spin: Float, val color: Color, val w: Float
+)
+
+/** A short confetti burst (about 1.8 s) every time [trigger] grows. Drawn on a Canvas, no library. */
+@Composable
+fun ConfettiOverlay(trigger: Int) {
+    if (trigger == 0) return
+    val progress = remember(trigger) { Animatable(0f) }
+    LaunchedEffect(trigger) { progress.animateTo(1f, tween(1800, easing = LinearEasing)) }
+    val palette = listOf(BrandStart, BrandEnd, Gold, Green, Color(0xFFEC4899), Color(0xFF38BDF8))
+    val pieces = remember(trigger) {
+        List(80) {
+            ConfettiPiece(
+                x = 0.5f + (Random.nextFloat() - 0.5f) * 0.3f,
+                vx = (Random.nextFloat() - 0.5f) * 1.3f,
+                vy = -(0.35f + Random.nextFloat() * 0.45f),
+                spin = (Random.nextFloat() - 0.5f) * 4f,
+                color = palette[it % palette.size],
+                w = 10f + Random.nextFloat() * 10f
+            )
+        }
+    }
+    val t = progress.value
+    if (t >= 1f) return
+    Canvas(Modifier.fillMaxSize()) {
+        pieces.forEach { p ->
+            val x = (p.x + p.vx * t) * size.width
+            val y = (0.3f + p.vy * t + 1.25f * t * t) * size.height        // thrown up, then gravity
+            rotate(degrees = p.spin * t * 360f, pivot = Offset(x, y)) {
+                drawRect(color = p.color, topLeft = Offset(x - p.w / 2, y - p.w / 4),
+                    size = Size(p.w, p.w / 2), alpha = (1f - t).coerceIn(0f, 1f))
+            }
+        }
+    }
+}
+
+/** The banner that slides down from the top for a live message. */
+@Composable
+fun NoticeCard(text: String) {
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().shadow(10.dp, shape).clip(shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)), shape)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(32.dp).clip(CircleShape).background(Brush.linearGradient(listOf(BrandStart, BrandEnd))),
+            contentAlignment = Alignment.Center
+        ) { Text("🔔", fontSize = 16.sp) }
+        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 12.dp))
+    }
 }

@@ -37,6 +37,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.LaunchedEffect
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.provider.CalendarContract
+import uz.skillswap.app.util.jitsiUrl
+import uz.skillswap.app.util.nextOccurrence
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,6 +85,10 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val sync by vm.sync.collectAsStateWithLifecycle()
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    var planTarget by remember { mutableStateOf<BookingLine?>(null) }
 
     fun show(err: String?) {
         if (err != null) scope.launch { snackbar.showSnackbar(err) }
@@ -117,13 +134,24 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                     if (upcoming.isNotEmpty()) {
                         item { SectionTitle("Upcoming (${upcoming.size})") }
                         items(upcoming, key = { it.bookingId }) { b ->
-                            LessonCard(b, mode, onCancel = { cancelTarget = b }, onDone = { doneTarget = b }, onRate = {})
+                            LessonCard(
+                                b, mode, sync.online, onCancel = { cancelTarget = b }, onDone = { doneTarget = b }, onRate = {},
+                                onVideo = {
+                                    try { uriHandler.openUri(jitsiUrl(b.bookingId, b.createdAt)) }
+                                    catch (e: Exception) { show("No browser found to open the video room") }
+                                },
+                                onCalendar = { if (!addToCalendar(context, b)) show("No calendar app found") },
+                                onPlan = { planTarget = b }
+                            )
                         }
                     }
                     if (history.isNotEmpty()) {
                         item { SectionTitle("History (${history.size})", Modifier.padding(top = 8.dp)) }
                         items(history, key = { it.bookingId }) { b ->
-                            LessonCard(b, mode, onCancel = {}, onDone = {}, onRate = { rateTarget = b })
+                            LessonCard(
+                                b, mode, sync.online, onCancel = {}, onDone = {}, onRate = { rateTarget = b },
+                                onVideo = {}, onCalendar = {}, onPlan = { planTarget = b }
+                            )
                         }
                     }
                 }
@@ -152,11 +180,14 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
             confirmLabel = "Yes, it is done",
             onConfirm = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                vm.complete(target.bookingId) { show(it) }
+                vm.complete(target.bookingId) { err -> if (err == null) vm.celebrate() else show(err) }
                 doneTarget = null
             },
             onDismiss = { doneTarget = null }
         )
+    }
+    planTarget?.let { target ->
+        PlanDialog(vm, target, onDismiss = { planTarget = null })
     }
     rateTarget?.let { target ->
         RateDialog(
@@ -172,8 +203,9 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
 
 @Composable
 private fun LessonCard(
-    b: BookingLine, learnMode: Boolean,
-    onCancel: () -> Unit, onDone: () -> Unit, onRate: () -> Unit
+    b: BookingLine, learnMode: Boolean, online: Boolean,
+    onCancel: () -> Unit, onDone: () -> Unit, onRate: () -> Unit,
+    onVideo: () -> Unit, onCalendar: () -> Unit, onPlan: () -> Unit
 ) {
     val (label, statusColor) = when (b.status) {
         STATUS_BOOKED -> "Upcoming" to Lavender
@@ -199,6 +231,15 @@ private fun LessonCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                     Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { Text("Mark as done") }
                     OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp)) { Text("Cancel") }
+                }
+            }
+            if (b.status == STATUS_BOOKED || (online && b.status == STATUS_DONE)) {
+                Row {
+                    if (b.status == STATUS_BOOKED) {
+                        SmallAction("🎥 Video", onVideo)
+                        SmallAction("📅 Calendar", onCalendar)
+                    }
+                    if (online) SmallAction("✨ AI plan", onPlan)
                 }
             }
             if (!learnMode && b.status == STATUS_BOOKED) {
@@ -246,3 +287,60 @@ private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, Strin
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
+
+@Composable
+private fun SmallAction(label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/** Opens the phone's calendar app with the next lesson filled in. Returns false if there is no calendar app. */
+private fun addToCalendar(context: Context, b: BookingLine): Boolean {
+    val start = nextOccurrence(System.currentTimeMillis(), b.day, b.hour, java.util.TimeZone.getDefault())
+    val intent = Intent(Intent.ACTION_INSERT)
+        .setData(CalendarContract.Events.CONTENT_URI)
+        .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
+        .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, start + 60 * 60 * 1000L)
+        .putExtra(CalendarContract.Events.TITLE, "SkillSwap: ${b.skillName}")
+        .putExtra(CalendarContract.Events.DESCRIPTION,
+            "Teacher: ${b.teacherName}\nLearner: ${b.learnerName}\nVideo room: ${jitsiUrl(b.bookingId, b.createdAt)}")
+    return try {
+        context.startActivity(intent)
+        true
+    } catch (e: ActivityNotFoundException) {
+        false
+    }
+}
+
+/** Asks the server for a 60-minute plan (AI when available, otherwise a smart template). */
+@Composable
+private fun PlanDialog(vm: SkillSwapViewModel, b: BookingLine, onDismiss: () -> Unit) {
+    var plan by remember { mutableStateOf<String?>(null) }
+    var source by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(b.bookingId) {
+        vm.lessonPlan(b.bookingId) { p, s, e -> plan = p; source = s; error = e }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("✨ Lesson plan · ${b.skillName}") },
+        text = {
+            when {
+                error != null -> Text(error ?: "", color = MaterialTheme.colorScheme.error)
+                plan == null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.height(22.dp))
+                    Text("  Preparing a 60-minute plan…")
+                }
+                else -> Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(plan ?: "", style = MaterialTheme.typography.bodyMedium)
+                    Text(if (source == "ai") "Written by AI for this lesson" else "Smart template for this lesson",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
+}
+

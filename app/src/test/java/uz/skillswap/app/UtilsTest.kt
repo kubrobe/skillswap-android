@@ -9,6 +9,8 @@ import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.Validators
 import uz.skillswap.app.util.averageRating
 import uz.skillswap.app.util.hasDuplicateSlots
+import uz.skillswap.app.util.jitsiUrl
+import uz.skillswap.app.util.nextOccurrence
 import uz.skillswap.app.util.memberLevel
 import uz.skillswap.app.util.nextLevelTarget
 import uz.skillswap.app.util.slotLabel
@@ -79,5 +81,19 @@ class UtilsTest {
         assertEquals("5 min ago", syncAgeText(now, now - 5 * 60_000L))
         assertEquals("2 h ago", syncAgeText(now, now - 125 * 60_000L))
         assertEquals("3 d ago", syncAgeText(now, now - 3 * 24 * 3_600_000L))
+    }
+
+    @Test fun nextOccurrence_findsTheNextWeeklyLesson() {
+        val utc = java.util.TimeZone.getTimeZone("UTC")
+        val mondayTenAm = 1794218400000L                                  // Mon 9 Nov 2026, 10:00 UTC
+        assertEquals(1794247200000L, nextOccurrence(mondayTenAm, 1, 18, utc))   // later today, 18:00
+        assertEquals(1794819600000L, nextOccurrence(mondayTenAm, 1, 9, utc))    // 9:00 passed -> next Monday
+        assertEquals(1794740400000L, nextOccurrence(mondayTenAm, 7, 11, utc))   // Sunday 15 Nov, 11:00
+    }
+
+    @Test fun jitsiUrl_isStableAndUnique() {
+        assertEquals(jitsiUrl(5, 123456789L), jitsiUrl(5, 123456789L))
+        assertNotEquals(jitsiUrl(5, 123456789L), jitsiUrl(6, 123456789L))
+        assertTrue(jitsiUrl(5, 1L).startsWith("https://meet.jit.si/SkillSwap-5-"))
     }
 }
