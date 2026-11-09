@@ -14,10 +14,6 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.random.Random
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.core.tween
@@ -56,6 +52,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -157,33 +155,32 @@ fun glassBorder(): Brush =
     else Brush.linearGradient(listOf(Color.White, Color.White.copy(alpha = 0.35f)))
 
 /**
- * The background of the whole app: three soft colour glows that drift very slowly.
- * Drawn with radial gradients (no blur), so it stays smooth on mid-range phones.
+ * The background of the whole app: three soft colour glows.
+ * PERFORMANCE: it is static and its gradients are built once (drawWithCache), so it costs almost
+ * nothing per frame - the old drifting animation repainted the whole screen 60 times a second.
  */
 @Composable
 fun GlassBackground(modifier: Modifier = Modifier) {
     val dark = isSystemInDarkTheme()
     val base = MaterialTheme.colorScheme.background
-    val drift = rememberInfiniteTransition(label = "glow")
-    val a by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(16_000, easing = LinearEasing), RepeatMode.Reverse), label = "a")
-    val b by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(23_000, easing = LinearEasing), RepeatMode.Reverse), label = "b")
     val strength = if (dark) 0.58f else 0.40f
-    Canvas(modifier.fillMaxSize()) {
-        drawRect(base)
-        val w = size.width
-        val h = size.height
-        val glows = listOf(
-            Triple(BrandStart, Offset(w * (0.12f + 0.25f * a), h * (0.16f + 0.10f * b)), w * 0.80f),
-            Triple(BrandEnd, Offset(w * (0.92f - 0.30f * b), h * (0.52f + 0.14f * a)), w * 0.75f),
-            Triple(Color(0xFF38BDF8), Offset(w * (0.28f + 0.30f * b), h * (0.94f - 0.12f * a)), w * 0.65f)
-        )
-        glows.forEach { (color, center, radius) ->
-            drawCircle(
-                brush = Brush.radialGradient(listOf(color.copy(alpha = strength), Color.Transparent), center = center, radius = radius),
-                radius = radius, center = center
-            )
+    Spacer(
+        modifier.fillMaxSize().drawWithCache {
+            val w = size.width
+            val h = size.height
+            val glows = listOf(
+                Triple(BrandStart, Offset(w * 0.22f, h * 0.18f), w * 0.85f),
+                Triple(BrandEnd, Offset(w * 0.85f, h * 0.55f), w * 0.80f),
+                Triple(Color(0xFF38BDF8), Offset(w * 0.35f, h * 0.92f), w * 0.70f)
+            ).map { (color, center, radius) ->
+                Triple(Brush.radialGradient(listOf(color.copy(alpha = strength), Color.Transparent), center, radius), center, radius)
+            }
+            onDrawBehind {
+                drawRect(base)
+                glows.forEach { (brush, center, radius) -> drawCircle(brush, radius, center) }
+            }
         }
-    }
+    )
 }
 
 /** Bottom space for screens with the floating tab bar: the bar + the phone's navigation bar. */

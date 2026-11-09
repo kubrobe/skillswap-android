@@ -41,6 +41,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.IntOffset
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import uz.skillswap.app.ui.components.GlassBackground
 import uz.skillswap.app.ui.components.glassBorder
 import uz.skillswap.app.ui.components.glassFill
@@ -146,8 +152,11 @@ fun AppNavHost(vm: SkillSwapViewModel) {
         }
     }
 
+    // Everything inside this Box is the "source" the tab bar blurs (background glow + screens).
+    val hazeState = rememberHazeState()
     Box(Modifier.fillMaxSize()) {
-    GlassBackground()                    // slowly drifting colour glow behind every screen
+    Box(Modifier.fillMaxSize().hazeSource(state = hazeState)) {
+    GlassBackground()                    // soft colour glow behind every screen
     Scaffold(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)   // each screen handles its own insets
@@ -213,6 +222,8 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     ) {
         NoticeCard(noticeText)
     }
+    }   // end of the blurred source
+
     // The floating liquid-glass tab bar. It slides away when a lesson is pushed in, like on iOS.
     AnimatedVisibility(
         visible = currentRoute in tabs.map { it.route },
@@ -220,7 +231,7 @@ fun AppNavHost(vm: SkillSwapViewModel) {
         exit = slideOutVertically(spring(dampingRatio = 1f, stiffness = 500f)) { it } + fadeOut(tween(150)),
         modifier = Modifier.align(Alignment.BottomCenter)
     ) {
-        GlassTabBar(currentRoute) { route ->
+        GlassTabBar(hazeState, currentRoute) { route ->
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             nav.navigateToTab(route)
         }
@@ -244,20 +255,28 @@ private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoB
  * STRETCHES while it moves, like a drop of liquid, then settles back to its round shape.
  */
 @Composable
-private fun GlassTabBar(currentRoute: String?, onSelect: (String) -> Unit) {
+private fun GlassTabBar(hazeState: HazeState, currentRoute: String?, onSelect: (String) -> Unit) {
     val selectedIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     val dark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(34.dp)
-    val fill = if (dark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.45f)
+    // Frosted glass: what scrolls under the bar is BLURRED (Android 12+), then tinted.
+    // Older phones cannot blur cheaply, so Haze draws the more solid fallback tint instead.
+    val frost = HazeStyle(
+        backgroundColor = MaterialTheme.colorScheme.background,
+        tints = listOf(HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f))),
+        blurRadius = 26.dp,
+        noiseFactor = 0.06f,
+        fallbackTint = HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.94f))
+    )
     val edge = Brush.linearGradient(
         listOf(Color.White.copy(alpha = if (dark) 0.55f else 0.95f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = if (dark) 0.25f else 0.6f))
     )
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
         BoxWithConstraints(
             Modifier.fillMaxWidth().height(66.dp)
-                .shadow(24.dp, shape, ambientColor = BrandStart, spotColor = BrandStart)
+                .shadow(10.dp, shape)
                 .clip(shape)
-                .background(fill)
+                .hazeEffect(state = hazeState, style = frost)
                 .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.14f else 0.35f), Color.Transparent)))
                 .border(BorderStroke(1.2.dp, edge), shape)
         ) {

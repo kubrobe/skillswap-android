@@ -51,5 +51,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    // Haze: real background blur behind the floating tab bar (Android 12+; frosted fallback below)
+    implementation("dev.chrisbanes.haze:haze:1.7.0")
+
     testImplementation(libs.junit)
 }
