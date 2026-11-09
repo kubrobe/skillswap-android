@@ -46,6 +46,7 @@ import uz.skillswap.app.ui.components.glassBorder
 import uz.skillswap.app.ui.components.glassFill
 import uz.skillswap.app.ui.theme.BrandEnd
 import uz.skillswap.app.ui.theme.BrandStart
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -149,15 +150,8 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     GlassBackground()                    // slowly drifting colour glow behind every screen
     Scaffold(
         containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),   // each screen handles its own insets
-        bottomBar = {
-            if (currentRoute in tabs.map { it.route }) {
-                GlassTabBar(currentRoute) { route ->
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    nav.navigateToTab(route)
-                }
-            }
-        }
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)   // each screen handles its own insets
+        // no bottomBar slot: the tab bar FLOATS over the content (below), so lists scroll under it
     ) { padding ->
         // iOS-style motion: a detail screen is PUSHED in from the right with a spring while the
         // screen below slides a little to the left (parallax); switching tabs is a soft fade + zoom.
@@ -219,6 +213,19 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     ) {
         NoticeCard(noticeText)
     }
+    // The floating liquid-glass tab bar. It slides away when a lesson is pushed in, like on iOS.
+    AnimatedVisibility(
+        visible = currentRoute in tabs.map { it.route },
+        enter = slideInVertically(spring(dampingRatio = 0.8f, stiffness = 380f)) { it } + fadeIn(tween(200)),
+        exit = slideOutVertically(spring(dampingRatio = 1f, stiffness = 500f)) { it } + fadeOut(tween(150)),
+        modifier = Modifier.align(Alignment.BottomCenter)
+    ) {
+        GlassTabBar(currentRoute) { route ->
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            nav.navigateToTab(route)
+        }
+    }
+
     // SkillSwap is always online: when the server cannot be reached, say so and offer a retry.
     if (user != null && sync.problem != null) {
         NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
@@ -232,30 +239,47 @@ private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER)
 private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
 
 /**
- * A floating glass tab bar. The coloured capsule behind the selected tab slides with a spring,
- * and the selected icon pops a little - the same feel as an iPhone tab bar.
+ * Floating "liquid glass" tab bar (like iOS 26): a very transparent pill with a bright edge and a
+ * glossy top highlight. The selected tab sits under a glass lens that slides with a spring and
+ * STRETCHES while it moves, like a drop of liquid, then settles back to its round shape.
  */
 @Composable
 private fun GlassTabBar(currentRoute: String?, onSelect: (String) -> Unit) {
     val selectedIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
-    val shape = RoundedCornerShape(32.dp)
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+    val dark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(34.dp)
+    val fill = if (dark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.45f)
+    val edge = Brush.linearGradient(
+        listOf(Color.White.copy(alpha = if (dark) 0.55f else 0.95f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = if (dark) 0.25f else 0.6f))
+    )
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
         BoxWithConstraints(
-            Modifier.fillMaxWidth().height(64.dp).shadow(18.dp, shape).clip(shape)
-                .background(glassFill()).border(BorderStroke(1.dp, glassBorder()), shape)
+            Modifier.fillMaxWidth().height(66.dp)
+                .shadow(24.dp, shape, ambientColor = BrandStart, spotColor = BrandStart)
+                .clip(shape)
+                .background(fill)
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.14f else 0.35f), Color.Transparent)))
+                .border(BorderStroke(1.2.dp, edge), shape)
         ) {
             val itemWidth = maxWidth / tabs.size
-            val x by animateDpAsState(itemWidth * selectedIndex, spring(dampingRatio = 0.72f, stiffness = 380f), label = "tabCapsule")
+            val target = itemWidth * selectedIndex
+            val x by animateDpAsState(target, spring(dampingRatio = 0.68f, stiffness = 320f), label = "lensX")
+            // the further the lens still has to travel, the more it stretches (liquid feel)
+            val stretch = 1f + ((target - x).value / itemWidth.value).let { kotlin.math.abs(it) }.coerceAtMost(1f) * 0.45f
             Box(
-                Modifier.offset(x = x).width(itemWidth).fillMaxHeight().padding(6.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(Brush.linearGradient(listOf(BrandStart, BrandEnd)))
+                Modifier.offset(x = x).width(itemWidth).fillMaxHeight().padding(5.dp)
+                    .graphicsLayer { scaleX = stretch; scaleY = 1f / kotlin.math.sqrt(stretch) }
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.55f), BrandEnd.copy(alpha = 0.45f))))
+                    .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.30f), Color.Transparent)))
+                    .border(BorderStroke(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f)))), RoundedCornerShape(28.dp))
             )
             Row(Modifier.fillMaxSize()) {
                 tabs.forEachIndexed { i, tab ->
                     val selected = i == selectedIndex
-                    val pop by animateFloatAsState(if (selected) 1.15f else 1f, spring(dampingRatio = 0.45f, stiffness = 500f), label = "tabIcon")
-                    val tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    val pop by animateFloatAsState(if (selected) 1.15f else 1f, spring(dampingRatio = 0.42f, stiffness = 520f), label = "tabIcon")
+                    val lift by animateDpAsState(if (selected) (-1).dp else 0.dp, spring(dampingRatio = 0.5f, stiffness = 400f), label = "tabLift")
+                    val tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     Column(
                         Modifier.weight(1f).fillMaxHeight()
                             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(tab.route) },
@@ -263,7 +287,7 @@ private fun GlassTabBar(currentRoute: String?, onSelect: (String) -> Unit) {
                         verticalArrangement = Arrangement.Center
                     ) {
                         Icon(tab.icon, contentDescription = tab.label, tint = tint,
-                            modifier = Modifier.size(22.dp).graphicsLayer { scaleX = pop; scaleY = pop })
+                            modifier = Modifier.offset(y = lift).size(22.dp).graphicsLayer { scaleX = pop; scaleY = pop })
                         Text(tab.label, style = MaterialTheme.typography.labelSmall, color = tint)
                     }
                 }

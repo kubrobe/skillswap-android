@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import uz.skillswap.app.ui.components.bottomBarSpace
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,7 +76,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit) {
     val reviewCount = myOffers.sumOf { it.reviewCount }
     val reputation = weightedRating(myOffers.map { it.rating to it.reviewCount })
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = bottomBarSpace())) {
         GradientHeader {
             Spacer(Modifier.height(8.dp))
             Box(

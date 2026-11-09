@@ -26,6 +26,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import uz.skillswap.app.ui.components.bottomBarSpace
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,7 +97,7 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     Scaffold(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
-        snackbarHost = { SnackbarHost(snackbar) }
+        snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = bottomBarSpace())) }
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             GradientHeader {
@@ -122,7 +123,7 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                 val history = lines.filter { it.status != STATUS_BOOKED }
                 LazyColumn(
                     Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottomBarSpace()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (lines.isEmpty()) {

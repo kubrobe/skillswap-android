@@ -36,6 +36,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -144,14 +147,14 @@ fun CountUpText(target: Int, style: TextStyle, color: Color) {
 /** Translucent card fill: the coloured glow behind the app shines through it. */
 @Composable
 fun glassFill(): Color =
-    if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
-    else Color.White.copy(alpha = 0.72f)
+    if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surface.copy(alpha = 0.34f)
+    else Color.White.copy(alpha = 0.50f)
 
 /** The light edge of a glass panel: brighter at the top-left, fading out. */
 @Composable
 fun glassBorder(): Brush =
-    if (isSystemInDarkTheme()) Brush.linearGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.04f)))
-    else Brush.linearGradient(listOf(Color.White, MaterialTheme.colorScheme.outlineVariant))
+    if (isSystemInDarkTheme()) Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.05f)))
+    else Brush.linearGradient(listOf(Color.White, Color.White.copy(alpha = 0.35f)))
 
 /**
  * The background of the whole app: three soft colour glows that drift very slowly.
@@ -164,7 +167,7 @@ fun GlassBackground(modifier: Modifier = Modifier) {
     val drift = rememberInfiniteTransition(label = "glow")
     val a by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(16_000, easing = LinearEasing), RepeatMode.Reverse), label = "a")
     val b by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(23_000, easing = LinearEasing), RepeatMode.Reverse), label = "b")
-    val strength = if (dark) 0.42f else 0.30f
+    val strength = if (dark) 0.58f else 0.40f
     Canvas(modifier.fillMaxSize()) {
         drawRect(base)
         val w = size.width
@@ -183,16 +186,20 @@ fun GlassBackground(modifier: Modifier = Modifier) {
     }
 }
 
+/** Bottom space for screens with the floating tab bar: the bar + the phone's navigation bar. */
+@Composable
+fun bottomBarSpace(): Dp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 104.dp
+
 // ---- layout building blocks ----
 
 /** The coloured header with rounded bottom corners. It also fills the area behind the status bar. */
 @Composable
-fun GradientHeader(content: @Composable ColumnScope.() -> Unit) {
+fun GradientHeader(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.92f), BrandEnd.copy(alpha = 0.86f))))
+            .background(Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.78f), BrandEnd.copy(alpha = 0.66f))))
             .statusBarsPadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),

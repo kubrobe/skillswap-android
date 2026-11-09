@@ -52,6 +52,13 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.graphicsLayer
+import uz.skillswap.app.ui.components.bottomBarSpace
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,9 +97,15 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
     val skills by vm.skills.collectAsStateWithLifecycle()
     var editingWants by remember { mutableStateOf(false) }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    val listState = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = bottomBarSpace())) {
         item {
-            GradientHeader {
+            // iOS-style parallax: the header moves up slower than the list and fades out
+            GradientHeader(Modifier.graphicsLayer {
+                val off = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 900f
+                translationY = off * 0.45f
+                alpha = 1f - (off / 700f).coerceIn(0f, 0.9f)
+            }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Hi, ${user?.fullName?.substringBefore(' ') ?: "guest"} 👋",
                         style = MaterialTheme.typography.headlineSmall, color = Color.White,
@@ -115,14 +128,25 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    // glass search field: white frost on the purple header
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = Color.White.copy(alpha = 0.20f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.14f),
                         focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color.White,
+                        focusedPlaceholderColor = Color.White.copy(alpha = 0.75f),
+                        unfocusedPlaceholderColor = Color.White.copy(alpha = 0.75f),
+                        focusedLeadingIconColor = Color.White,
+                        unfocusedLeadingIconColor = Color.White,
+                        focusedTrailingIconColor = Color.White,
+                        unfocusedTrailingIconColor = Color.White
                     ),
                     modifier = Modifier.fillMaxWidth()
+                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -199,13 +223,22 @@ fun ratingText(offer: OfferCard): String =
 /** Credits balance in the header. */
 @Composable
 private fun CreditsChip(balance: Int) {
+    // the chip bounces whenever the balance changes, and the number counts to the new value
+    val bounce = remember { Animatable(1f) }
+    LaunchedEffect(balance) {
+        bounce.animateTo(1.18f, spring(dampingRatio = 0.4f, stiffness = 700f))
+        bounce.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f))
+    }
+    val shown by animateIntAsState(balance, tween(600), label = "credits")
     Row(
-        Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f))
+        Modifier.graphicsLayer { scaleX = bounce.value; scaleY = bounce.value }
+            .clip(CircleShape).background(Color.White.copy(alpha = 0.2f))
+            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("🪙", fontSize = 16.sp)
-        Text(" $balance", style = MaterialTheme.typography.titleSmall, color = Color.White)
+        Text(" $shown", style = MaterialTheme.typography.titleSmall, color = Color.White)
     }
 }
 
