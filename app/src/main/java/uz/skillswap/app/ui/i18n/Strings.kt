@@ -272,6 +272,21 @@ open class Strings {
     open val you = "You"
     open fun taughtLearned(t: Int, l: Int) = "Taught $t · learned $l"
     open fun connections(n: Int) = "$n connections"
+
+    // ---- AI matchmaker ----
+    open val speechLocale = "en-US"
+    open val askTitle = "Ask SkillSwap"
+    open val askPrompt = "Say what you want to learn"
+    open val askExample = "e.g. “I want to learn guitar on weekends”"
+    open val tapToSpeak = "Tap the mic and speak"
+    open val orType = "or type it here"
+    open val thinking = "Finding your best teachers…"
+    open fun understood(x: String) = "I heard: $x"
+    open val byAi = "✨ Picked by AI"
+    open val bySmart = "Smart match"
+    open val noVoice = "Voice input is not available on this phone. Type instead."
+    open val noPicks = "No free lesson matches yet. Try other words."
+    open val speak = "Speak"
 }
 
 object En : Strings()
@@ -508,6 +523,20 @@ object Uz : Strings() {
     override val you = "Siz"
     override fun taughtLearned(t: Int, l: Int) = "Oʻrgatdi: $t · oʻrgandi: $l"
     override fun connections(n: Int) = "$n ta aloqa"
+
+    override val speechLocale = "uz-UZ"
+    override val askTitle = "SkillSwapdan soʻrang"
+    override val askPrompt = "Nimani oʻrganmoqchi ekaningizni ayting"
+    override val askExample = "masalan: “dam olish kunlari gitara oʻrganmoqchiman”"
+    override val tapToSpeak = "Mikrofonni bosing va gapiring"
+    override val orType = "yoki shu yerga yozing"
+    override val thinking = "Eng mos ustozlarni qidiryapman…"
+    override fun understood(x: String) = "Tushundim: $x"
+    override val byAi = "✨ AI tanladi"
+    override val bySmart = "Aqlli tanlov"
+    override val noVoice = "Bu telefonda ovozli kiritish yoʻq. Yozib kiriting."
+    override val noPicks = "Hozircha mos boʻsh dars yoʻq. Boshqa soʻzlarni sinab koʻring."
+    override val speak = "Gapirish"
 }
 
 /** Русский. */
@@ -742,4 +771,18 @@ object Ru : Strings() {
     override val you = "Вы"
     override fun taughtLearned(t: Int, l: Int) = "Провёл: $t · изучил: $l"
     override fun connections(n: Int) = "связей: $n"
+
+    override val speechLocale = "ru-RU"
+    override val askTitle = "Спросите SkillSwap"
+    override val askPrompt = "Скажите, чему хотите научиться"
+    override val askExample = "например: «хочу учиться играть на гитаре по выходным»"
+    override val tapToSpeak = "Нажмите на микрофон и говорите"
+    override val orType = "или напишите здесь"
+    override val thinking = "Ищу лучших учителей…"
+    override fun understood(x: String) = "Я понял: $x"
+    override val byAi = "✨ Подобрано ИИ"
+    override val bySmart = "Умный подбор"
+    override val noVoice = "Голосовой ввод недоступен на этом телефоне. Напишите текстом."
+    override val noPicks = "Пока нет подходящих свободных уроков. Попробуйте другие слова."
+    override val speak = "Говорить"
 }

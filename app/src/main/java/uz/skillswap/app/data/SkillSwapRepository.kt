@@ -285,6 +285,12 @@ class SkillSwapRepository(
     fun savedLanguage(): String? = prefs.getString(KEY_LANG, null)
     fun saveLanguage(code: String) = prefs.edit().putString(KEY_LANG, code).apply()
 
+    /** AI matchmaker: what the user said or typed -> the best lessons. */
+    suspend fun match(text: String, lang: String): uz.skillswap.app.data.remote.MatchResult {
+        val t = token ?: throw IllegalStateException("Please log in first")
+        return api.match(t, text.trim(), lang)
+    }
+
     /** Who taught whom, for the Skill Galaxy screen. */
     suspend fun galaxy(): uz.skillswap.app.data.remote.Galaxy {
         val t = token ?: throw IllegalStateException("Please log in first")

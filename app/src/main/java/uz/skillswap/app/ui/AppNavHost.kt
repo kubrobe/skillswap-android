@@ -97,6 +97,7 @@ import kotlin.math.roundToInt
 import uz.skillswap.app.ui.components.ConfettiOverlay
 import uz.skillswap.app.ui.components.NoticeCard
 import uz.skillswap.app.ui.screens.DetailScreen
+import uz.skillswap.app.ui.screens.AskScreen
 import uz.skillswap.app.ui.screens.GalaxyScreen
 import uz.skillswap.app.ui.screens.HomeScreen
 import uz.skillswap.app.ui.screens.ImpactScreen
@@ -120,6 +121,7 @@ object Routes {
     const val SWIPE = "swipe"
     const val IMPACT = "impact"
     const val GALAXY = "galaxy"
+    const val ASK = "ask"
     fun detail(id: Long) = "detail/$id"
 }
 
@@ -215,7 +217,14 @@ fun AppNavHost(vm: SkillSwapViewModel) {
                 HomeScreen(vm, onOfferClick = { id -> nav.navigate(Routes.detail(id)) },
                     onSwipe = { nav.navigate(Routes.SWIPE) },
                     onImpact = { nav.navigate(Routes.IMPACT) },
-                    onGalaxy = { nav.navigate(Routes.GALAXY) })
+                    onGalaxy = { nav.navigate(Routes.GALAXY) },
+                    onAsk = { nav.navigate(Routes.ASK) })
+            }
+            composable(Routes.ASK) {
+                AskScreen(vm,
+                    onClose = { nav.popBackStack() },
+                    // opening a lesson replaces this sheet, so "back" from the lesson goes to Browse
+                    onOpen = { id -> nav.navigate(Routes.detail(id)) { popUpTo(Routes.ASK) { inclusive = true } } })
             }
             composable(Routes.IMPACT) {
                 ImpactScreen(vm, onBack = { nav.popBackStack() }, onGalaxy = { nav.navigate(Routes.GALAXY) })
@@ -280,7 +289,7 @@ fun AppNavHost(vm: SkillSwapViewModel) {
 /** Screens that slide in like an iPhone "push"; everything else fades. */
 private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT, Routes.GALAXY)
 /** Screens that slide up from the bottom like an iPhone sheet. */
-private val MODAL = setOf(Routes.SWIPE)
+private val MODAL = setOf(Routes.SWIPE, Routes.ASK)
 private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
 private val modalSpring = spring<IntOffset>(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)
 

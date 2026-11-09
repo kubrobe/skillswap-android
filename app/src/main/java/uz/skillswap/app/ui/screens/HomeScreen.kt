@@ -103,7 +103,8 @@ import uz.skillswap.app.ui.components.StaggerIn
 
 @Composable
 fun HomeScreen(
-    vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: () -> Unit, onImpact: () -> Unit, onGalaxy: () -> Unit
+    vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: () -> Unit, onImpact: () -> Unit,
+    onGalaxy: () -> Unit, onAsk: () -> Unit
 ) {
     val offers by vm.offers.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
@@ -144,10 +145,13 @@ fun HomeScreen(
                     placeholder = { Text(tr.searchHint, maxLines = 1) },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     trailingIcon = {
-                        AnimatedVisibility(visible = query.isNotEmpty(), enter = fadeIn(), exit = fadeOut()) {
+                        // empty search: a mic for the AI matchmaker; while typing: clear
+                        if (query.isNotEmpty()) {
                             IconButton(onClick = { vm.query.value = "" }) {
                                 Icon(Icons.Filled.Close, contentDescription = tr.clearSearch)
                             }
+                        } else {
+                            IconButton(onClick = onAsk) { Text("🎙️", fontSize = 20.sp) }
                         }
                     },
                     singleLine = true,

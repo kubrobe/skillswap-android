@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui
 
+import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.data.remote.Galaxy
 import java.util.Locale
 import uz.skillswap.app.ui.i18n.Lang
@@ -163,6 +164,13 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     fun saveLiked(skillIds: List<Long>) {
         val merged = uz.skillswap.app.util.mergeWants(wants.value, skillIds)
         if (merged.toSet() != wants.value.toSet()) setWants(merged) { }
+    }
+
+    /** AI matchmaker; onResult(result, error). Answers come in the app's language. */
+    fun askMatchmaker(text: String, onResult: (MatchResult?, String?) -> Unit) = viewModelScope.launch {
+        runCatching { repo.match(text, lang.value.code) }
+            .onSuccess { onResult(it, null) }
+            .onFailure { onResult(null, it.message ?: "Could not find a match") }
     }
 
     // Skill Galaxy screen

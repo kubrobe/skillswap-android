@@ -49,6 +49,10 @@ class Impact(
 class WeekCount(val week: String, val lessons: Int)       // week = Monday, "2026-11-02"
 class TopSkill(val name: String, val emoji: String, val lessons: Int)
 
+/** AI matchmaker answer: what it understood and up to 3 lessons, each with a reason. source = "ai" or "smart". */
+class MatchResult(val source: String, val understood: String, val picks: List<MatchPick>)
+class MatchPick(val offerId: Long, val reason: String)
+
 /** Skill Galaxy: people (first names only) and lessons from teacher to learner. */
 class Galaxy(val me: Long, val nodes: List<GalaxyNode>, val edges: List<GalaxyEdge>)
 class GalaxyNode(val id: Long, val name: String, val category: String, val emoji: String, val taught: Int, val learned: Int)
@@ -159,6 +163,16 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
             topSkills = (o.optJSONArray("topSkills") ?: JSONArray()).objects().map {
                 TopSkill(it.optString("name"), it.optString("emoji", "🎓"), it.optInt("lessons"))
             }
+        )
+    }
+
+    /** "I want to learn guitar on weekends" -> the best lessons. [lang] = "en", "uz" or "ru". */
+    suspend fun match(token: String, text: String, lang: String): MatchResult {
+        val o = request("POST", "/match", token, JSONObject().put("text", text).put("lang", lang))
+        return MatchResult(
+            source = o.optString("source", "smart"),
+            understood = o.optString("understood"),
+            picks = (o.optJSONArray("picks") ?: JSONArray()).objects().map { MatchPick(it.getLong("offerId"), it.optString("reason")) }
         )
     }
 
