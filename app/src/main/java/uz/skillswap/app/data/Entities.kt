@@ -118,7 +118,8 @@ data class OfferCard(
     val rating: Double,
     val reviewCount: Int,
     val freeSlots: Int,
-    val trusted: Boolean
+    val trusted: Boolean,
+    val skillId: Long = 0
 )
 
 /** One row of "My lessons". */

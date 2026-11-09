@@ -171,7 +171,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     }
 
     bookedText?.let { text ->
-        BookedDialog(text = text, onDone = { bookedText = null; vm.celebrate(); onBooked() })
+        BookedDialog(text = text, onDone = { bookedText = null; vm.celebrate(); vm.playCoin(-1); onBooked() })
     }
 }
 

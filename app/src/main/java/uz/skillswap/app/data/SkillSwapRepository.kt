@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import uz.skillswap.app.data.remote.ActivityLine
 import uz.skillswap.app.data.remote.ApiClient
 import uz.skillswap.app.data.remote.ApiException
 import uz.skillswap.app.data.remote.AuthResult
@@ -54,6 +55,14 @@ class SkillSwapRepository(
     val wants: StateFlow<List<Long>> = _wants.asStateFlow()
     private val _matches = MutableStateFlow<List<Match>>(emptyList())
     val matches: StateFlow<List<Match>> = _matches.asStateFlow()
+
+    /** Live community feed for the ticker on Browse (newest first). */
+    private val _activity = MutableStateFlow<List<ActivityLine>>(emptyList())
+    val activity: StateFlow<List<ActivityLine>> = _activity.asStateFlow()
+
+    /** +1 when someone checks in to my lesson (live server event). Plays the flying-coin animation. */
+    private val _coins = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+    val coins: SharedFlow<Int> = _coins.asSharedFlow()
 
     /** Live messages from the server, e.g. "Bobur booked your Python lesson". Shown as a banner. */
     private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 8)
@@ -136,6 +145,7 @@ class SkillSwapRepository(
         _wallet.value = s.wallet
         _wants.value = s.wants
         _matches.value = s.matches
+        _activity.value = s.activity
         _currentUser.value = db.userDao().findById(s.me.id) ?: s.me
     }
 
@@ -208,6 +218,7 @@ class SkillSwapRepository(
         _wallet.value = null
         _wants.value = emptyList()
         _matches.value = emptyList()
+        _activity.value = emptyList()
         _currentUser.value = null
     }
 
@@ -226,6 +237,7 @@ class SkillSwapRepository(
     fun offer(id: Long): Flow<OfferCard?> = db.offerDao().observeOffer(id)
     fun slots(offerId: Long): Flow<List<TimeSlot>> = db.offerDao().observeSlots(offerId)
     fun reviews(offerId: Long): Flow<List<ReviewLine>> = db.offerDao().observeReviews(offerId)
+    fun allOffers(): Flow<List<OfferCard>> = db.offerDao().search("", null)
     fun myOffers(userId: Long): Flow<List<OfferCard>> = db.offerDao().observeMine(userId)
     fun learning(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeLearning(userId)
     fun teaching(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeTeaching(userId)
@@ -293,6 +305,11 @@ class SkillSwapRepository(
                         }
                         "notice" -> { _notices.tryEmit(data.optString("text")) }
                         "changed" -> refresh()
+                        "credit" -> { _coins.tryEmit(data.optInt("amount", 1)) }
+                        "activity" -> {
+                            val line = ActivityLine(data.optString("text"), data.optLong("at", System.currentTimeMillis()))
+                            if (line.text.isNotBlank()) _activity.value = (listOf(line) + _activity.value).take(12)
+                        }
                     }
                     Unit
                 }

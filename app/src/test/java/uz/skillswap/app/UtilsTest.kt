@@ -5,7 +5,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import uz.skillswap.app.data.OfferCard
+import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.util.Security
+import uz.skillswap.app.util.buildDeck
+import uz.skillswap.app.util.mergeWants
 import uz.skillswap.app.util.Validators
 import uz.skillswap.app.util.averageRating
 import uz.skillswap.app.util.checkinQrText
@@ -105,5 +109,23 @@ class UtilsTest {
         assertTrue(parseCheckinQr(text, 43) == null)                  // QR of another lesson
         assertTrue(parseCheckinQr("https://example.com", 42) == null) // not a SkillSwap QR
         assertTrue(parseCheckinQr("skillswap:checkin:42:73", 42) == null)
+    }
+
+    private fun card(id: Long, rating: Double, free: Int = 2) =
+        OfferCard(id, "Skill $id", "🎸", "Music", "Beginner", "", 9, "Teacher", rating, 1, free, false, id)
+
+    @Test fun swipeDeck_twoWaySwapsFirst_thenMatches_thenBestRated_noFullLessons() {
+        val deck = buildDeck(
+            listOf(card(1, 5.0), card(2, 3.0), card(3, 4.0), card(4, 4.9, free = 0)),
+            listOf(Match(2, "Teacher", "Skill 2", "🎸", "Python"), Match(3, "Teacher", "Skill 3", "🎸", null))
+        )
+        assertEquals(listOf(2L, 3L, 1L), deck.map { it.offer.offerId })   // lesson 4 is full
+        assertEquals("Python", deck.first().theyWant)
+        assertTrue(deck[1].isMatch && deck[1].theyWant == null)
+    }
+
+    @Test fun mergeWants_keepsOldOnes_noDuplicates_max10() {
+        assertEquals(listOf(1L, 2L, 3L), mergeWants(listOf(1L, 2L), listOf(2L, 3L)))
+        assertEquals(10, mergeWants((1L..8L).toList(), listOf(20L, 21L, 22L)).size)
     }
 }

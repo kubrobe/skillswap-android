@@ -48,7 +48,7 @@ private const val OFFER_SELECT = """
            COALESCE((SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.offerId = o.id), 0.0) AS rating,
            (SELECT COUNT(*) FROM reviews r WHERE r.offerId = o.id) AS reviewCount,
            (SELECT COUNT(*) FROM time_slots t WHERE t.offerId = o.id AND t.isBooked = 0) AS freeSlots,
-           o.trusted AS trusted
+           o.trusted AS trusted, o.skillId AS skillId
     FROM offers o
     JOIN skills s ON s.id = o.skillId
     JOIN users u ON u.id = o.userId

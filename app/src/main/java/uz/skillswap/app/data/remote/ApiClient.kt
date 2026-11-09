@@ -35,6 +35,9 @@ class Wallet(val balance: Int, val history: List<WalletLine>)
 /** Someone who teaches what I want. theyWant != null = they also want something I teach (two-way swap). */
 class Match(val offerId: Long, val teacherName: String, val skillName: String, val emoji: String, val theyWant: String?)
 
+/** One line of the live community ticker, e.g. "Jasur taught Guitar · +1 🪙". [at] = epoch millis. */
+class ActivityLine(val text: String, val at: Long)
+
 /** Everything the app downloads in one request; the tables are written into Room as one transaction. */
 class Snapshot(
     val me: User,
@@ -46,7 +49,8 @@ class Snapshot(
     val reviews: List<Review>,
     val wallet: Wallet = Wallet(0, emptyList()),
     val wants: List<Long> = emptyList(),
-    val matches: List<Match> = emptyList()
+    val matches: List<Match> = emptyList(),
+    val activity: List<ActivityLine> = emptyList()
 )
 
 /**
@@ -120,6 +124,9 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
                 Match(offerId = it.getLong("offerId"), teacherName = it.getString("teacherName"),
                     skillName = it.getString("skillName"), emoji = it.getString("emoji"),
                     theyWant = if (it.isNull("theyWant")) null else it.getString("theyWant"))
+            },
+            activity = (o.optJSONArray("activity") ?: JSONArray()).objects().map {
+                ActivityLine(text = it.optString("text"), at = it.optDouble("at", 0.0).toLong())
             }
         )
     }
@@ -138,7 +145,7 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
 
     /**
      * Live updates: keeps ONE HTTP connection open and calls [onEvent] for every server event
-     * ("hello", "changed", "notice"). Returns when the connection closes; the caller reconnects.
+     * ("hello", "changed", "notice", "credit", "activity"). Returns when the connection closes; the caller reconnects.
      */
     suspend fun listen(token: String, onEvent: suspend (String, JSONObject) -> Unit): Unit =
         withContext(Dispatchers.IO) {

@@ -100,7 +100,9 @@ import uz.skillswap.app.ui.screens.LessonsScreen
 import uz.skillswap.app.ui.screens.LoginScreen
 import uz.skillswap.app.ui.screens.ProfileScreen
 import uz.skillswap.app.ui.screens.RegisterScreen
+import uz.skillswap.app.ui.screens.SwipeScreen
 import uz.skillswap.app.ui.screens.TeachScreen
+import uz.skillswap.app.ui.components.CoinFlyOverlay
 
 /** All screen addresses ("routes") in one place */
 object Routes {
@@ -111,6 +113,7 @@ object Routes {
     const val TEACH = "teach"
     const val PROFILE = "profile"
     const val DETAIL = "detail/{offerId}"
+    const val SWIPE = "swipe"
     fun detail(id: Long) = "detail/$id"
 }
 
@@ -171,19 +174,23 @@ fun AppNavHost(vm: SkillSwapViewModel) {
         NavHost(
             nav, startDestination = start, modifier = Modifier.padding(padding),
             enterTransition = {
-                if (targetState.destination.route in PUSHED) slideInHorizontally(pushSpring) { it }
+                if (targetState.destination.route in MODAL) slideInVertically(modalSpring) { it }
+                else if (targetState.destination.route in PUSHED) slideInHorizontally(pushSpring) { it }
                 else fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f)
             },
             exitTransition = {
-                if (targetState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { -it / 4 } + fadeOut(tween(300), targetAlpha = 0.6f)
+                if (targetState.destination.route in MODAL) fadeOut(tween(300), targetAlpha = 0.5f)
+                else if (targetState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { -it / 4 } + fadeOut(tween(300), targetAlpha = 0.6f)
                 else fadeOut(tween(150))
             },
             popEnterTransition = {
-                if (initialState.destination.route in PUSHED) slideInHorizontally(pushSpring) { -it / 4 } + fadeIn(tween(300), initialAlpha = 0.6f)
+                if (initialState.destination.route in MODAL) fadeIn(tween(300), initialAlpha = 0.5f)
+                else if (initialState.destination.route in PUSHED) slideInHorizontally(pushSpring) { -it / 4 } + fadeIn(tween(300), initialAlpha = 0.6f)
                 else fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f)
             },
             popExitTransition = {
-                if (initialState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { it }
+                if (initialState.destination.route in MODAL) slideOutVertically(modalSpring) { it }
+                else if (initialState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { it }
                 else fadeOut(tween(150))
             }
         ) {
@@ -198,7 +205,14 @@ fun AppNavHost(vm: SkillSwapViewModel) {
                     onBack = { nav.popBackStack() })
             }
             composable(Routes.HOME) {
-                HomeScreen(vm, onOfferClick = { id -> nav.navigate(Routes.detail(id)) })
+                HomeScreen(vm, onOfferClick = { id -> nav.navigate(Routes.detail(id)) },
+                    onSwipe = { nav.navigate(Routes.SWIPE) })
+            }
+            composable(Routes.SWIPE) {
+                SwipeScreen(vm,
+                    onClose = { nav.popBackStack() },
+                    // opening a lesson replaces the deck, so "back" from the lesson goes to Browse
+                    onOpen = { id -> nav.navigate(Routes.detail(id)) { popUpTo(Routes.SWIPE) { inclusive = true } } })
             }
             composable(
                 Routes.DETAIL,
@@ -245,13 +259,17 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     if (user != null && sync.problem != null) {
         NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
     }
+    CoinFlyOverlay(vm.coins)
     ConfettiOverlay(celebrate)
     }
 }
 
 /** Screens that slide in like an iPhone "push"; everything else fades. */
 private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER)
+/** Screens that slide up from the bottom like an iPhone sheet. */
+private val MODAL = setOf(Routes.SWIPE)
 private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+private val modalSpring = spring<IntOffset>(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)
 
 /**
  * Floating "liquid glass" tab bar: real blur of the content behind it (Haze), a glossy edge, and a

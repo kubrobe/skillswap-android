@@ -29,6 +29,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.sp
 import uz.skillswap.app.data.Skill
+import uz.skillswap.app.data.remote.ActivityLine
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.mutableIntStateOf
+import kotlinx.coroutines.delay
+import uz.skillswap.app.ui.components.pressScale
+import uz.skillswap.app.ui.theme.GoldDeep
+import uz.skillswap.app.ui.theme.GoldPrimary
+import uz.skillswap.app.ui.theme.OnGold
+import uz.skillswap.app.util.syncAgeText
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.ui.components.AppCard
 import uz.skillswap.app.ui.components.glassBorder
@@ -88,7 +101,7 @@ import uz.skillswap.app.ui.components.SmallPill
 import uz.skillswap.app.ui.components.StaggerIn
 
 @Composable
-fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
+fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: () -> Unit) {
     val offers by vm.offers.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
@@ -98,6 +111,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
     val wants by vm.wants.collectAsStateWithLifecycle()
     val matches by vm.matches.collectAsStateWithLifecycle()
     val skills by vm.skills.collectAsStateWithLifecycle()
+    val activity by vm.activity.collectAsStateWithLifecycle()
     var editingWants by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
@@ -154,6 +168,9 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
                 Spacer(Modifier.height(8.dp))
             }
         }
+        if (activity.isNotEmpty()) {
+            item { LiveTicker(activity) }
+        }
         item {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -163,6 +180,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
                 items(categories) { c -> Pill(c, selected == c, { vm.category.value = c }) }
             }
         }
+        item { SwipeBanner(onSwipe) }
         item {
             MatchesSection(
                 matches = matches, hasWants = wants.isNotEmpty(),
@@ -334,3 +352,83 @@ private fun WantsDialog(skills: List<Skill>, selected: Set<Long>, onDismiss: () 
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
+
+/**
+ * "LIVE" strip under the header: what is happening on SkillSwap right now, one line every 3.5 s.
+ * The green dot pings once per line (no endless animation: the blurred tab bar would have to re-blur every frame).
+ */
+@Composable
+private fun LiveTicker(lines: List<ActivityLine>) {
+    var index by remember { mutableIntStateOf(0) }
+    val ping = remember { Animatable(0f) }
+    LaunchedEffect(lines) {
+        index = 0                                   // a new event arrived: show it first
+        while (true) {
+            ping.snapTo(1f)
+            ping.animateTo(0f, tween(900))
+            delay(2_600)
+            if (lines.size > 1) index = (index + 1) % lines.size
+        }
+    }
+    val line = lines[index.coerceIn(0, lines.lastIndex)]
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)
+            .clip(RoundedCornerShape(16.dp)).background(glassFill())
+            .border(BorderStroke(1.dp, glassBorder()), RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Box(Modifier.size(8.dp).graphicsLayer {
+                val grow = 1f + (1f - ping.value) * 1.6f
+                scaleX = grow
+                scaleY = grow
+                alpha = ping.value * 0.6f
+            }.clip(CircleShape).background(Green))
+            Box(Modifier.size(8.dp).clip(CircleShape).background(Green))
+        }
+        Text("LIVE", style = MaterialTheme.typography.labelSmall, color = Green, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 7.dp, end = 10.dp))
+        AnimatedContent(
+            targetState = line,
+            transitionSpec = {
+                (slideInVertically(tween(320)) { it } + fadeIn(tween(320))) togetherWith
+                    (slideOutVertically(tween(260)) { -it } + fadeOut(tween(200)))
+            },
+            modifier = Modifier.weight(1f),
+            label = "ticker"
+        ) { l ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(l.text, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f))
+                Text(syncAgeText(System.currentTimeMillis(), l.at), style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+    }
+}
+
+/** Entry to "Swipe to swap". */
+@Composable
+private fun SwipeBanner(onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            .pressScale(source)
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(GoldPrimary, GoldDeep)))
+            .clickable(interactionSource = source, indication = null, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("🃏", fontSize = 30.sp)
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text("Swipe to swap", style = MaterialTheme.typography.titleMedium, color = OnGold, fontWeight = FontWeight.Bold)
+            Text("Right = I want to learn it · Left = skip", style = MaterialTheme.typography.bodySmall,
+                color = OnGold.copy(alpha = 0.75f))
+        }
+        Text("→", fontSize = 24.sp, color = OnGold, fontWeight = FontWeight.Bold)
+    }
+}
+

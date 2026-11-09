@@ -9,6 +9,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import uz.skillswap.app.SkillSwapApp
@@ -26,6 +28,7 @@ import uz.skillswap.app.data.Skill
 import uz.skillswap.app.data.SkillSwapRepository
 import uz.skillswap.app.data.SyncState
 import uz.skillswap.app.data.TimeSlot
+import uz.skillswap.app.data.remote.ActivityLine
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.Wallet
 import uz.skillswap.app.data.User
@@ -43,6 +46,16 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     val wants: StateFlow<List<Long>> = repo.wants
     val matches: StateFlow<List<Match>> = repo.matches
     val notices: SharedFlow<String> = repo.notices       // live banner messages
+    val activity: StateFlow<List<ActivityLine>> = repo.activity   // live community ticker
+    // -1 / +1 for the flying-coin animation: server events (+1 earned) and my own bookings (-1)
+    private val localCoins = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+    val coins: Flow<Int> = merge(repo.coins, localCoins)
+    fun playCoin(amount: Int) { localCoins.tryEmit(amount) }
+
+    /** Every lesson except my own, for the swipe deck. */
+    val allOffers: StateFlow<List<OfferCard>> = combine(repo.allOffers(), currentUser) { list, me ->
+        list.filter { it.teacherId != me?.id }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // Confetti: every +1 plays the animation once
     private val _celebrate = MutableStateFlow(0)
@@ -132,6 +145,12 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     fun logout() {
         stopLive()
         viewModelScope.launch { repo.logout() }
+    }
+
+    /** End of a swipe session: the skills swiped right become wishes, so Perfect matches update. */
+    fun saveLiked(skillIds: List<Long>) {
+        val merged = uz.skillswap.app.util.mergeWants(wants.value, skillIds)
+        if (merged.toSet() != wants.value.toSet()) setWants(merged) { }
     }
 
     fun setWants(skillIds: List<Long>, onResult: (String?) -> Unit) = viewModelScope.launch {
