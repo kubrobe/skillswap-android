@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -95,6 +96,7 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
     val user by vm.currentUser.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    val tr = LocalStrings.current
 
     // The deck is built once when the screen opens, so a background refresh never reshuffles it.
     var deck by remember { mutableStateOf<List<DeckCard>?>(null) }
@@ -141,10 +143,10 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = close) { Icon(Icons.Filled.Close, contentDescription = "Close") }
+            IconButton(onClick = close) { Icon(Icons.Filled.Close, contentDescription = tr.close) }
             Column(Modifier.weight(1f)) {
-                Text("Swipe to swap", style = MaterialTheme.typography.titleLarge)
-                Text("→ I want to learn it   ·   ← skip", style = MaterialTheme.typography.labelMedium,
+                Text(tr.swipeTitle, style = MaterialTheme.typography.titleLarge)
+                Text(tr.swipeArrows, style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (cards.isNotEmpty()) {
@@ -156,8 +158,8 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp)) {
             val widthPx = with(LocalDensity.current) { maxWidth.toPx() }
             when {
-                deck == null -> EmptyDeck("⏳", "Loading lessons…", null)
-                cards.isEmpty() -> EmptyDeck("🙌", "No lessons to swipe yet", "All lessons are full right now. Come back later!")
+                deck == null -> EmptyDeck("⏳", tr.loadingLessons, null)
+                cards.isEmpty() -> EmptyDeck("🙌", tr.noLessonsToSwipe, tr.allFull)
                 top == null -> DeckDone(liked, onOpen = { id -> vm.saveLiked(liked.map { it.offer.skillId }); onOpen(id) }, onDone = close)
                 else -> {
                     // remembered per card: a new card always starts in the middle
@@ -214,12 +216,12 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
                     ) {
                         LessonCard(top, Modifier.fillMaxSize(), onClick = { onOpen(top.offer.offerId) })
                         // stamps that fade in while dragging
-                        Stamp("LEARN", Green, Modifier.align(Alignment.TopStart).padding(22.dp)
+                        Stamp(tr.stampLearn, Green, Modifier.align(Alignment.TopStart).padding(22.dp)
                             .graphicsLayer {
                                 alpha = (dragX.value / (widthPx * 0.25f)).coerceIn(0f, 1f)
                                 rotationZ = -14f
                             })
-                        Stamp("SKIP", Red, Modifier.align(Alignment.TopEnd).padding(22.dp)
+                        Stamp(tr.stampSkip, Red, Modifier.align(Alignment.TopEnd).padding(22.dp)
                             .graphicsLayer {
                                 alpha = (-dragX.value / (widthPx * 0.25f)).coerceIn(0f, 1f)
                                 rotationZ = 14f
@@ -231,8 +233,8 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
                         Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(28.dp)
                     ) {
-                        RoundAction("✕", Red, "Skip") { fling(false) }
-                        RoundAction("♥", GoldPrimary, "I want to learn it") { fling(true) }
+                        RoundAction("✕", Red, tr.skip) { fling(false) }
+                        RoundAction("♥", GoldPrimary, tr.iWantToLearn) { fling(true) }
                     }
                 }
             }
@@ -257,6 +259,7 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
 /** One lesson as a big card. Solid (not glass), because cards lie on top of each other. */
 @Composable
 private fun LessonCard(card: DeckCard, modifier: Modifier, onClick: (() -> Unit)? = null) {
+    val tr = LocalStrings.current
     val o = card.offer
     val shape = RoundedCornerShape(30.dp)
     val tap = if (onClick != null) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick) else Modifier
@@ -276,18 +279,18 @@ private fun LessonCard(card: DeckCard, modifier: Modifier, onClick: (() -> Unit)
             Text(o.emoji, fontSize = 110.sp)
             Row(Modifier.align(Alignment.TopStart).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallPill(o.category, Color.White)
-                if (o.trusted) SmallPill("✓ Trusted", Green)
+                if (o.trusted) SmallPill(tr.trusted, Green)
             }
             if (card.theyWant != null) {
                 Text(
-                    "🔁 Perfect swap · they want your ${card.theyWant}",
+                    tr.swapBadge(card.theyWant),
                     color = OnGold, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(14.dp)
                         .clip(RoundedCornerShape(50)).background(GoldPrimary).padding(horizontal = 14.dp, vertical = 6.dp)
                 )
             } else if (card.isMatch) {
                 Text(
-                    "✨ Teaches what you want", color = Color.White, style = MaterialTheme.typography.labelLarge,
+                    "✨ " + tr.teachesYourWish, color = Color.White, style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(14.dp)
                         .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.22f)).padding(horizontal = 14.dp, vertical = 6.dp)
                 )
@@ -296,15 +299,15 @@ private fun LessonCard(card: DeckCard, modifier: Modifier, onClick: (() -> Unit)
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(o.skillName, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("by ${o.teacherName}", style = MaterialTheme.typography.bodyMedium,
+                Text(tr.byTeacher(o.teacherName), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 1)
-                Text(ratingText(o), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
+                Text(ratingText(o, tr.new), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
                     color = if (o.reviewCount == 0) MaterialTheme.colorScheme.onSurfaceVariant else Gold)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 LevelBadge(o.level)
-                SmallPill("${o.freeSlots} free", Green)
-                SmallPill("1 🪙 / hour", GoldDeep)
+                SmallPill(tr.freeN(o.freeSlots), Green)
+                SmallPill(tr.perHour, GoldDeep)
             }
             if (o.description.isNotBlank()) {
                 Text(o.description, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis,
@@ -349,11 +352,12 @@ private fun EmptyDeck(emoji: String, title: String, text: String?) {
 /** End of the deck: what I liked, ready to open. */
 @Composable
 private fun DeckDone(liked: List<DeckCard>, onOpen: (Long) -> Unit, onDone: () -> Unit) {
+    val tr = LocalStrings.current
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("🎉", fontSize = 56.sp)
-        Text("That's everyone!", style = MaterialTheme.typography.titleLarge)
+        Text(tr.thatsEveryone, style = MaterialTheme.typography.titleLarge)
         Text(
-            if (liked.isEmpty()) "Nothing caught your eye this time." else "You want to learn ${liked.size}. They are saved as your wishes.",
+            if (liked.isEmpty()) tr.nothingCaught else tr.likedSaved(liked.size),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(14.dp))
@@ -361,7 +365,7 @@ private fun DeckDone(liked: List<DeckCard>, onOpen: (Long) -> Unit, onDone: () -
             items(liked, key = { it.offer.offerId }) { c -> OfferRow(c.offer) { onOpen(c.offer.offerId) } }
         }
         Button(onClick = onDone, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            Text("Done")
+            Text(tr.done)
         }
     }
 }
@@ -369,6 +373,7 @@ private fun DeckDone(liked: List<DeckCard>, onOpen: (Long) -> Unit, onDone: () -
 /** "It's a swap!" - both of us want what the other one teaches. */
 @Composable
 private fun SwapOverlay(card: DeckCard, myName: String, onBook: () -> Unit, onKeep: () -> Unit) {
+    val tr = LocalStrings.current
     val enter = remember(card.offer.offerId) { Animatable(0f) }
     LaunchedEffect(card.offer.offerId) { enter.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 200f)) }
     Box(
@@ -383,7 +388,7 @@ private fun SwapOverlay(card: DeckCard, myName: String, onBook: () -> Unit, onKe
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Text(
-                "It's a swap!", color = GoldPrimary, fontSize = 42.sp, fontWeight = FontWeight.Black,
+                tr.itsASwap, color = GoldPrimary, fontSize = 42.sp, fontWeight = FontWeight.Black,
                 modifier = Modifier.graphicsLayer {
                     val s = 0.6f + 0.4f * enter.value
                     scaleX = s
@@ -398,15 +403,15 @@ private fun SwapOverlay(card: DeckCard, myName: String, onBook: () -> Unit, onKe
                     Modifier.graphicsLayer { translationX = (1f - enter.value) * 320f })
             }
             Text(
-                "${card.offer.teacherName.substringBefore(' ')} teaches you ${card.offer.skillName} — and wants to learn your ${card.theyWant}.",
+                tr.swapText(card.offer.teacherName.substringBefore(' '), card.offer.skillName, card.theyWant ?: ""),
                 color = Color.White, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center
             )
             Button(
                 onClick = onBook, shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = OnGold),
                 modifier = Modifier.fillMaxWidth().height(54.dp)
-            ) { Text("Book a lesson · 1 🪙", fontWeight = FontWeight.Bold) }
-            TextButton(onClick = onKeep) { Text("Keep swiping", color = Color.White) }
+            ) { Text(tr.bookLesson, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onKeep) { Text(tr.keepSwiping, color = Color.White) }
         }
     }
 }

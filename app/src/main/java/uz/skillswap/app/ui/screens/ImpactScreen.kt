@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -74,25 +75,26 @@ fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
     val error by vm.impactError.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
     LaunchedEffect(sync.lastSync) { vm.loadImpact() }        // first open + after every live update
+    val tr = LocalStrings.current
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         GradientHeader {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr.back, tint = Color.White)
                 }
                 Column {
-                    Text("Community impact", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                    Text("Live · app + website, one database", style = MaterialTheme.typography.labelMedium,
+                    Text(tr.communityImpact, style = MaterialTheme.typography.titleLarge, color = Color.White)
+                    Text(tr.impactLive, style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.8f))
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Text("Together, people saved about", style = MaterialTheme.typography.bodyMedium,
+            Text(tr.togetherSaved, style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.85f))
             MoneyCountUp(impact?.savedUzs ?: 0L)
             Text(
-                impact?.assumption ?: " ",
+                impact?.let { tr.assumption(formatUzs(it.tutorPriceUzs)) } ?: " ",
                 style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f)
             )
             Spacer(Modifier.height(10.dp))
@@ -100,9 +102,9 @@ fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
 
         val data = impact
         if (data == null && error != null) {
-            EmptyState("📡", "Could not load the numbers", error ?: "")
+            EmptyState("📡", tr.couldNotLoad, error ?: "")
             TextButton(onClick = { vm.loadImpact() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text("Try again")
+                Text(tr.tryAgain)
             }
         } else if (data == null) {
             Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -111,15 +113,15 @@ fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("👥", data.members, "members", null)
-                StatTile("🎓", data.lessonsDone, "lessons finished", "${data.upcoming} coming up")
+                StatTile("👥", data.members, tr.statMembers, null)
+                StatTile("🎓", data.lessonsDone, tr.statLessonsFinished, tr.comingUp(data.upcoming))
             }
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("⏱️", data.hoursShared, "hours of knowledge shared", null)
-                StatTile("🪙", data.credits, "credits in circulation", "1 credit = 1 hour")
+                StatTile("⏱️", data.hoursShared, tr.statHours, null)
+                StatTile("🪙", data.credits, tr.statCredits, tr.creditIsHour)
             }
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("🧑‍🏫", data.teachers, "teachers", "${data.skills} different skills")
+                StatTile("🧑‍🏫", data.teachers, tr.statTeachers, tr.differentSkills(data.skills))
                 RatingTile(data)
             }
             WeeklyCard(data.weekly)
@@ -136,7 +138,7 @@ private fun MoneyCountUp(target: Long) {
     val shown = if (anim.isRunning) anim.value.toLong() else target
     Row(verticalAlignment = Alignment.Bottom) {
         Text(formatUzs(shown), color = Lavender, fontSize = 38.sp, fontWeight = FontWeight.Black, maxLines = 1)
-        Text(" UZS", color = Lavender.copy(alpha = 0.85f), style = MaterialTheme.typography.titleMedium,
+        Text(" " + LocalStrings.current.uzs, color = Lavender.copy(alpha = 0.85f), style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(bottom = 6.dp))
     }
 }
@@ -155,12 +157,13 @@ private fun RowScope.StatTile(emoji: String, value: Int, label: String, sub: Str
 
 @Composable
 private fun RowScope.RatingTile(data: Impact) {
+    val tr = LocalStrings.current
     AppCard(Modifier.weight(1f).fillMaxHeight()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("⭐", fontSize = 22.sp)
             Text(if (data.reviews == 0) "–" else "${data.avgRating}", style = MaterialTheme.typography.headlineSmall, color = Gold)
-            Text("average rating", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${data.reviews} reviews", style = MaterialTheme.typography.labelSmall, color = GoldDeep)
+            Text(tr.avgRating, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr.reviewsCount(data.reviews), style = MaterialTheme.typography.labelSmall, color = GoldDeep)
         }
     }
 }
@@ -174,11 +177,12 @@ private fun WeeklyCard(weeks: List<WeekCount>) {
     val growth = growthPercent(weeks.map { it.lessons })
     val full = Brush.verticalGradient(listOf(GoldPrimary, GoldDeep))
     val partial = Brush.verticalGradient(listOf(GoldPrimary.copy(alpha = 0.45f), GoldDeep.copy(alpha = 0.35f)))
+    val tr = LocalStrings.current
 
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionTitle("Lessons finished per week", Modifier.weight(1f))
+                SectionTitle(tr.perWeek, Modifier.weight(1f))
                 if (growth != null) {
                     Text(
                         (if (growth >= 0) "📈 +" else "📉 ") + "$growth%",
@@ -209,13 +213,13 @@ private fun WeeklyCard(weeks: List<WeekCount>) {
                                 .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                                 .background(if (current) partial else full)
                         )
-                        Text(if (current) "now" else weekLabel(w.week), style = MaterialTheme.typography.labelSmall,
+                        Text(if (current) tr.now else weekLabel(w.week), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                 }
             }
             if (growth != null) {
-                Text("Last 3 full weeks compared with the 3 weeks before.", style = MaterialTheme.typography.bodySmall,
+                Text(tr.growthNote, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -230,7 +234,7 @@ private fun TopSkillsCard(top: List<TopSkill>) {
     val max = (top.maxOfOrNull { it.lessons } ?: 0).coerceAtLeast(1)
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionTitle("Most popular skills")
+            SectionTitle(LocalStrings.current.popularSkills)
             top.forEachIndexed { i, s ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(s.emoji, fontSize = 20.sp, modifier = Modifier.width(30.dp))

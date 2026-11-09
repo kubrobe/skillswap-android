@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -112,6 +113,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
     val matches by vm.matches.collectAsStateWithLifecycle()
     val skills by vm.skills.collectAsStateWithLifecycle()
     val activity by vm.activity.collectAsStateWithLifecycle()
+    val tr = LocalStrings.current
     var editingWants by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
@@ -124,23 +126,23 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
                 alpha = 1f - (off / 700f).coerceIn(0f, 0.9f)
             }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Hi, ${user?.fullName?.substringBefore(' ') ?: "guest"} 👋",
+                    Text(tr.hi(user?.fullName?.substringBefore(' ') ?: tr.guest),
                         style = MaterialTheme.typography.headlineSmall, color = Color.White,
                         modifier = Modifier.weight(1f))
                     wallet?.let { w -> CreditsChip(w.balance) }
                 }
-                Text("What do you want to learn today?", style = MaterialTheme.typography.bodyMedium,
+                Text(tr.whatToLearn, style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.85f))
                 Spacer(Modifier.height(12.dp))
                 TextField(
                     value = query,
                     onValueChange = { vm.query.value = it },
-                    placeholder = { Text("Search skills or teachers", maxLines = 1) },
+                    placeholder = { Text(tr.searchHint, maxLines = 1) },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     trailingIcon = {
                         AnimatedVisibility(visible = query.isNotEmpty(), enter = fadeIn(), exit = fadeOut()) {
                             IconButton(onClick = { vm.query.value = "" }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                                Icon(Icons.Filled.Close, contentDescription = tr.clearSearch)
                             }
                         }
                     },
@@ -176,7 +178,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
             ) {
-                item { Pill("All", selected == null, { vm.category.value = null }) }
+                item { Pill(tr.all, selected == null, { vm.category.value = null }) }
                 items(categories) { c -> Pill(c, selected == c, { vm.category.value = c }) }
             }
         }
@@ -189,7 +191,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
         }
         item {
             Text(
-                "${offers.size} skills available",
+                tr.skillsAvailable(offers.size),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
@@ -197,7 +199,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
         }
         if (offers.isEmpty()) {
             item {
-                EmptyState("🔍", "Nothing found", "Try another word or choose a different category.")
+                EmptyState("🔍", tr.nothingFound, tr.nothingFoundHint)
             }
         }
         itemsIndexed(offers, key = { _, o -> o.offerId }) { index, o ->
@@ -218,6 +220,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
 
 @Composable
 fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
+    val tr = LocalStrings.current
     AppCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             EmojiTile(offer.emoji, offer.category)
@@ -226,8 +229,8 @@ fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     buildAnnotatedString {
-                        append("by ${offer.teacherName}")
-                        if (offer.trusted) withStyle(SpanStyle(color = Green, fontWeight = FontWeight.SemiBold)) { append("  ✓ Trusted") }
+                        append(tr.byTeacher(offer.teacherName))
+                        if (offer.trusted) withStyle(SpanStyle(color = Green, fontWeight = FontWeight.SemiBold)) { append("  " + tr.trusted) }
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
@@ -235,8 +238,8 @@ fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
                 LevelBadge(offer.level)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (offer.freeSlots > 0) SmallPill("${offer.freeSlots} free", Green) else SmallPill("Full", Red)
-                Text(ratingText(offer), style = MaterialTheme.typography.labelMedium,
+                if (offer.freeSlots > 0) SmallPill(tr.freeN(offer.freeSlots), Green) else SmallPill(tr.full, Red)
+                Text(ratingText(offer, tr.new), style = MaterialTheme.typography.labelMedium,
                     color = if (offer.reviewCount == 0) MaterialTheme.colorScheme.onSurfaceVariant else Gold,
                     fontWeight = FontWeight.SemiBold)
             }
@@ -244,8 +247,8 @@ fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
     }
 }
 
-fun ratingText(offer: OfferCard): String =
-    if (offer.reviewCount == 0) "New" else "★ ${offer.rating} (${offer.reviewCount})"
+fun ratingText(offer: OfferCard, newLabel: String = "New"): String =
+    if (offer.reviewCount == 0) newLabel else "★ ${offer.rating} (${offer.reviewCount})"
 
 /** Credits balance in the header. */
 @Composable
@@ -274,20 +277,21 @@ private fun CreditsChip(balance: Int) {
 private fun MatchesSection(
     matches: List<Match>, hasWants: Boolean, onOpen: (Long) -> Unit, onEditWants: () -> Unit
 ) {
+    val tr = LocalStrings.current
     Column(Modifier.padding(bottom = 6.dp)) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("✨ Perfect matches", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            TextButton(onClick = onEditWants) { Text(if (hasWants) "Edit wishes" else "Add wishes") }
+            Text(tr.perfectMatches, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            TextButton(onClick = onEditWants) { Text(if (hasWants) tr.editWishes else tr.addWishes) }
         }
         when {
             !hasWants -> AppCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp), onClick = onEditWants) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("What do you want to learn?", style = MaterialTheme.typography.titleSmall)
-                    Text("Pick a few skills. We find people who teach them — and who want what you teach.",
+                    Text(tr.wishesTitle, style = MaterialTheme.typography.titleSmall)
+                    Text(tr.wishesText,
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            matches.isEmpty() -> Text("Nobody teaches your wishes yet. Try other skills!",
+            matches.isEmpty() -> Text(tr.noMatches,
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp))
             else -> LazyRow(
@@ -302,6 +306,7 @@ private fun MatchesSection(
 
 @Composable
 private fun MatchCard(m: Match, onClick: () -> Unit) {
+    val tr = LocalStrings.current
     val twoWay = m.theyWant != null
     val shape = RoundedCornerShape(22.dp)
     val textColor = if (twoWay) Color.White else MaterialTheme.colorScheme.onSurface
@@ -314,12 +319,12 @@ private fun MatchCard(m: Match, onClick: () -> Unit) {
             Column(Modifier.padding(start = 10.dp)) {
                 Text(m.skillName, style = MaterialTheme.typography.titleSmall, color = textColor,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("by ${m.teacherName}", style = MaterialTheme.typography.bodySmall,
+                Text(tr.byTeacher(m.teacherName), style = MaterialTheme.typography.bodySmall,
                     color = textColor.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Text(
-            if (twoWay) "🔁 Perfect swap! They want your ${m.theyWant}" else "Teaches what you want to learn",
+            if (twoWay) tr.perfectSwap(m.theyWant ?: "") else tr.teachesYourWish,
             style = MaterialTheme.typography.labelMedium, color = textColor, maxLines = 2
         )
     }
@@ -329,9 +334,10 @@ private fun MatchCard(m: Match, onClick: () -> Unit) {
 @Composable
 private fun WantsDialog(skills: List<Skill>, selected: Set<Long>, onDismiss: () -> Unit, onSave: (List<Long>) -> Unit) {
     var chosen by remember { mutableStateOf(selected) }
+    val tr = LocalStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("I want to learn…") },
+        title = { Text(tr.iWantToLearn) },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 skills.forEach { sk ->
@@ -348,8 +354,8 @@ private fun WantsDialog(skills: List<Skill>, selected: Set<Long>, onDismiss: () 
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(chosen.toList()) }) { Text("Find matches") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = { TextButton(onClick = { onSave(chosen.toList()) }) { Text(tr.findMatches) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
     )
 }
 
@@ -359,6 +365,7 @@ private fun WantsDialog(skills: List<Skill>, selected: Set<Long>, onDismiss: () 
  */
 @Composable
 private fun LiveTicker(lines: List<ActivityLine>, onClick: () -> Unit) {
+    val tr = LocalStrings.current
     var index by remember { mutableIntStateOf(0) }
     val ping = remember { Animatable(0f) }
     LaunchedEffect(lines) {
@@ -388,7 +395,7 @@ private fun LiveTicker(lines: List<ActivityLine>, onClick: () -> Unit) {
             }.clip(CircleShape).background(Green))
             Box(Modifier.size(8.dp).clip(CircleShape).background(Green))
         }
-        Text("LIVE", style = MaterialTheme.typography.labelSmall, color = Green, fontWeight = FontWeight.Bold,
+        Text(tr.live, style = MaterialTheme.typography.labelSmall, color = Green, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 7.dp, end = 10.dp))
         AnimatedContent(
             targetState = line,
@@ -402,7 +409,7 @@ private fun LiveTicker(lines: List<ActivityLine>, onClick: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(l.text, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f))
-                Text(syncAgeText(System.currentTimeMillis(), l.at), style = MaterialTheme.typography.labelSmall,
+                Text(tr.ago(System.currentTimeMillis(), l.at), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
             }
         }
@@ -413,6 +420,7 @@ private fun LiveTicker(lines: List<ActivityLine>, onClick: () -> Unit) {
 /** Entry to "Swipe to swap". */
 @Composable
 private fun SwipeBanner(onClick: () -> Unit) {
+    val tr = LocalStrings.current
     val source = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(22.dp)
     Row(
@@ -426,8 +434,8 @@ private fun SwipeBanner(onClick: () -> Unit) {
     ) {
         Text("🃏", fontSize = 30.sp)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text("Swipe to swap", style = MaterialTheme.typography.titleMedium, color = OnGold, fontWeight = FontWeight.Bold)
-            Text("Right = I want to learn it · Left = skip", style = MaterialTheme.typography.bodySmall,
+            Text(tr.swipeTitle, style = MaterialTheme.typography.titleMedium, color = OnGold, fontWeight = FontWeight.Bold)
+            Text(tr.swipeHint, style = MaterialTheme.typography.bodySmall,
                 color = OnGold.copy(alpha = 0.75f))
         }
         Text("→", fontSize = 24.sp, color = OnGold, fontWeight = FontWeight.Bold)

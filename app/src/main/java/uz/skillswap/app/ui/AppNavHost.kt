@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui
 
+import uz.skillswap.app.ui.i18n.Strings
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -119,12 +121,13 @@ object Routes {
     fun detail(id: Long) = "detail/$id"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+/** [label] picks the tab name from the current language. */
+private class Tab(val route: String, val label: (Strings) -> String, val icon: ImageVector)
 private val tabs = listOf(
-    Tab(Routes.HOME, "Browse", Icons.Filled.Home),
-    Tab(Routes.LESSONS, "Lessons", Icons.Filled.DateRange),
-    Tab(Routes.TEACH, "Teach", Icons.Filled.Add),
-    Tab(Routes.PROFILE, "Profile", Icons.Filled.Person)
+    Tab(Routes.HOME, { it.tabBrowse }, Icons.Filled.Home),
+    Tab(Routes.LESSONS, { it.tabLessons }, Icons.Filled.DateRange),
+    Tab(Routes.TEACH, { it.tabTeach }, Icons.Filled.Add),
+    Tab(Routes.PROFILE, { it.tabProfile }, Icons.Filled.Person)
 )
 
 @Composable
@@ -348,19 +351,20 @@ private fun GlassTabBar(hazeState: HazeState, currentRoute: String?, onSelect: (
 private fun TabItem(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val pop = animateFloatAsState(if (selected) 1.15f else 1f, spring(dampingRatio = 0.45f, stiffness = 520f), label = "tabIcon")
     val tint = if (selected) OnGold else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    val label = tab.label(LocalStrings.current)
     Column(
         modifier.fillMaxHeight()
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = tint,
+        Icon(tab.icon, contentDescription = label, tint = tint,
             modifier = Modifier.size(22.dp).graphicsLayer {
                 scaleX = pop.value
                 scaleY = pop.value
                 translationY = (1f - pop.value) * 8f          // a small lift while it pops
             })
-        Text(tab.label, style = MaterialTheme.typography.labelSmall, color = tint)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 1)
     }
 }
 
@@ -379,12 +383,12 @@ private fun NoConnectionScreen(message: String, retrying: Boolean, onRetry: () -
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("📡", fontSize = 56.sp)
-            Text("No connection", style = MaterialTheme.typography.headlineSmall)
+            Text(LocalStrings.current.noConnection, style = MaterialTheme.typography.headlineSmall)
             Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = onRetry, enabled = !retrying, shape = RoundedCornerShape(16.dp)) {
                 if (retrying) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text("Try again")
+                else Text(LocalStrings.current.tryAgain)
             }
         }
     }

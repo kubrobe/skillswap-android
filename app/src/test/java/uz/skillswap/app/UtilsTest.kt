@@ -7,6 +7,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import uz.skillswap.app.data.OfferCard
 import uz.skillswap.app.data.remote.Match
+import uz.skillswap.app.ui.i18n.En
+import uz.skillswap.app.ui.i18n.Lang
+import uz.skillswap.app.ui.i18n.Ru
+import uz.skillswap.app.ui.i18n.Uz
 import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.buildDeck
 import uz.skillswap.app.util.formatUzs
@@ -140,5 +144,18 @@ class UtilsTest {
         assertEquals(233, growthPercent(listOf(1, 2, 3, 5, 7, 8, 0)))
         assertTrue(growthPercent(listOf(0, 0, 0, 1, 2, 3, 4)) == null)   // nothing before: no percent
         assertTrue(growthPercent(listOf(1, 2, 3)) == null)               // not enough weeks
+    }
+
+    @Test fun languages_translateAndFallBackToEnglish() {
+        assertEquals(Lang.UZ, Lang.fromCode("uz"))
+        assertEquals(Lang.EN, Lang.fromCode("de"))          // unknown phone language -> English
+        assertEquals(Lang.EN, Lang.fromCode(null))
+        assertEquals("Izlash", Lang.UZ.strings.tabBrowse)
+        assertEquals("Обзор", Lang.RU.strings.tabBrowse)
+        assertEquals("Du 18:00", Uz.slot(1, 18))
+        assertEquals("Пн 09:00", Ru.slot(1, 9))
+        assertEquals("Boshlangʻich", Uz.level("Beginner"))
+        assertEquals("Beginner", En.level("Beginner"))     // stored value stays English
+        assertEquals("5 мин назад", Ru.ago(10 * 60_000L, 5 * 60_000L))
     }
 }

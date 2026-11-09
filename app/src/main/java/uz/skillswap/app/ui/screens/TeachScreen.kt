@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -73,13 +74,10 @@ import uz.skillswap.app.util.DAY_NAMES
 import uz.skillswap.app.util.hasDuplicateSlots
 import uz.skillswap.app.util.slotLabel
 
-private class LevelInfo(val name: String, val hint: String, val dots: Int)
+/** [name] is saved on the server in English; the screen shows it translated. */
+private class LevelInfo(val name: String, val dots: Int)
 
-private val LEVELS = listOf(
-    LevelInfo("Beginner", "I know the basics and can help a starter", 1),
-    LevelInfo("Intermediate", "I use it regularly and can explain it well", 2),
-    LevelInfo("Advanced", "I am confident and can teach in depth", 3)
-)
+private val LEVELS = listOf(LevelInfo("Beginner", 1), LevelInfo("Intermediate", 2), LevelInfo("Advanced", 3))
 private val HOURS = (8..21).toList()
 
 @Composable
@@ -97,6 +95,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val tr = LocalStrings.current
 
     fun say(text: String) { scope.launch { snackbar.showSnackbar(text) } }
 
@@ -118,8 +117,8 @@ fun TeachScreen(vm: SkillSwapViewModel) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = bottomBarSpace())) {
             GradientHeader {
-                Text("Teach a skill", style = MaterialTheme.typography.headlineSmall, color = Color.White)
-                Text("Share what you know. Others book your free times.",
+                Text(tr.teachTitle, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                Text(tr.teachSubtitle,
                     style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
                 Spacer(Modifier.height(8.dp))
             }
@@ -127,7 +126,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 AppCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SectionTitle("1. Choose a skill")
+                        SectionTitle(tr.step1)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(skills, key = { it.id }) { s ->
                                 Pill("${s.emoji} ${s.name}", skillId == s.id, { skillId = s.id; formError = null })
@@ -138,13 +137,13 @@ fun TeachScreen(vm: SkillSwapViewModel) {
 
                 AppCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SectionTitle("2. How well do you know it?")
+                        SectionTitle(tr.step2)
                         LEVELS.forEach { l ->
                             LevelOption(l, selected = level == l.name) { level = l.name }
                         }
                         OutlinedTextField(
                             value = description, onValueChange = { description = it; formError = null },
-                            label = { Text("What will you teach?") },
+                            label = { Text(tr.whatWillYouTeach) },
                             modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)
                         )
                     }
@@ -152,10 +151,10 @@ fun TeachScreen(vm: SkillSwapViewModel) {
 
                 AppCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SectionTitle("3. Your free times (every week)")
+                        SectionTitle(tr.step3)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(DAY_NAMES.indices.toList()) { i ->
-                                Pill(DAY_NAMES[i], day == i + 1, { day = i + 1 })
+                            items(tr.days.indices.toList()) { i ->
+                                Pill(tr.days[i], day == i + 1, { day = i + 1 })
                             }
                         }
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -164,17 +163,17 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                         OutlinedButton(
                             onClick = {
                                 val next = slots + (day to hour)
-                                if (hasDuplicateSlots(next)) say("This time is already in the list")
+                                if (hasDuplicateSlots(next)) say(tr.timeAlreadyInList)
                                 else { slots = next; formError = null }
                             },
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("+ Add ${slotLabel(day, hour)}") }
+                        ) { Text(tr.addSlot(tr.slot(day, hour))) }
 
                         slots.forEach { s ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🕒 ${slotLabel(s.first, s.second)}", Modifier.weight(1f))
-                                TextButton(onClick = { slots = slots - s }) { Text("Remove") }
+                                Text("🕒 ${tr.slot(s.first, s.second)}", Modifier.weight(1f))
+                                TextButton(onClick = { slots = slots - s }) { Text(tr.remove) }
                             }
                         }
                     }
@@ -192,9 +191,9 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                 Button(
                     onClick = {
                         val problem = when {
-                            skillId == 0L -> "Step 1: choose a skill first"
-                            description.isBlank() -> "Step 2: write a short description"
-                            slots.isEmpty() -> "Step 3: add at least one free time"
+                            skillId == 0L -> tr.needSkill
+                            description.isBlank() -> tr.needDescription
+                            slots.isEmpty() -> tr.needSlot
                             else -> null
                         }
                         if (problem != null) {
@@ -213,11 +212,11 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                     colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().height(54.dp)
-                ) { Text(if (justPublished) "Published ✓" else "Publish my lesson") }
+                ) { Text(if (justPublished) tr.published else tr.publish) }
 
-                SectionTitle("My listings (${myOffers.size})", Modifier.padding(top = 6.dp))
+                SectionTitle(tr.myListings(myOffers.size), Modifier.padding(top = 6.dp))
                 if (myOffers.isEmpty()) {
-                    EmptyState("🌱", "You do not teach anything yet", "Fill in the three steps above to publish your first lesson.")
+                    EmptyState("🌱", tr.noListings, tr.noListingsHint)
                 }
                 myOffers.forEach { o ->
                     AppCard(Modifier.fillMaxWidth()) {
@@ -226,7 +225,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                             Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(o.skillName, style = MaterialTheme.typography.titleMedium)
                                 LevelBadge(o.level)
-                                Text("${o.freeSlots} free times · ${ratingText(o)}",
+                                Text("${tr.freeTimes(o.freeSlots)} · ${ratingText(o, tr.new)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -246,6 +245,12 @@ private fun LevelOption(info: LevelInfo, selected: Boolean, onClick: () -> Unit)
         if (selected) color else MaterialTheme.colorScheme.outlineVariant, tween(180), label = "levelBorder"
     )
     val shape = RoundedCornerShape(16.dp)
+    val tr = LocalStrings.current
+    val hint = when (info.name) {
+        "Beginner" -> tr.levelBeginnerInfo
+        "Intermediate" -> tr.levelIntermediateInfo
+        else -> tr.levelAdvancedInfo
+    }
     Row(
         modifier = Modifier.fillMaxWidth().clip(shape)
             .border(BorderStroke(if (selected) 2.dp else 1.dp, borderColor), shape)
@@ -256,8 +261,8 @@ private fun LevelOption(info: LevelInfo, selected: Boolean, onClick: () -> Unit)
     ) {
         Text(levelMedal(info.name), fontSize = 24.sp)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(info.name, style = MaterialTheme.typography.titleSmall)
-            Text(info.hint, style = MaterialTheme.typography.bodySmall,
+            Text(tr.level(info.name), style = MaterialTheme.typography.titleSmall)
+            Text(hint, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

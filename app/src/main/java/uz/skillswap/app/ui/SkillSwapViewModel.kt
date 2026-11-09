@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui
 
+import java.util.Locale
+import uz.skillswap.app.ui.i18n.Lang
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
@@ -57,6 +59,14 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     val allOffers: StateFlow<List<OfferCard>> = combine(repo.allOffers(), currentUser) { list, me ->
         list.filter { it.teacherId != me?.id }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // App language: saved choice, else the phone's language (uz / ru), else English
+    private val _lang = MutableStateFlow(Lang.fromCode(repo.savedLanguage() ?: Locale.getDefault().language))
+    val lang: StateFlow<Lang> = _lang.asStateFlow()
+    fun setLanguage(l: Lang) {
+        _lang.value = l
+        repo.saveLanguage(l.code)
+    }
 
     // Confetti: every +1 plays the animation once
     private val _celebrate = MutableStateFlow(0)

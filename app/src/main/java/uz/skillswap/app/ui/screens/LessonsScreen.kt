@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.i18n.Strings
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -92,6 +94,7 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     var planTarget by remember { mutableStateOf<BookingLine?>(null) }
+    val tr = LocalStrings.current
 
     fun show(err: String?) {
         if (err != null) scope.launch { snackbar.showSnackbar(err) }
@@ -104,15 +107,15 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             GradientHeader {
-                Text("My lessons", style = MaterialTheme.typography.headlineSmall, color = Color.White)
-                Text("Your learning and teaching plan", style = MaterialTheme.typography.bodyMedium,
+                Text(tr.myLessons, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                Text(tr.lessonsSubtitle, style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.85f))
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill("I learn (${learning.size})", learnMode, { learnMode = true },
+                    Pill(tr.iLearn(learning.size), learnMode, { learnMode = true },
                         selectedBg = Color.White, selectedFg = BrandStart,
                         idleBg = Color.White.copy(alpha = 0.2f), idleFg = Color.White)
-                    Pill("I teach (${teaching.size})", !learnMode, { learnMode = false },
+                    Pill(tr.iTeach(teaching.size), !learnMode, { learnMode = false },
                         selectedBg = Color.White, selectedFg = BrandStart,
                         idleBg = Color.White.copy(alpha = 0.2f), idleFg = Color.White)
                 }
@@ -131,27 +134,27 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                 ) {
                     if (lines.isEmpty()) {
                         item {
-                            if (mode) EmptyState("🎓", "No lessons yet", "Open Browse and book your first lesson.")
-                            else EmptyState("🧑‍🏫", "Nobody booked you yet", "Publish a skill in the Teach tab and learners will find you.")
+                            if (mode) EmptyState("🎓", tr.noLessonsYet, tr.noLessonsHint)
+                            else EmptyState("🧑‍🏫", tr.nobodyBooked, tr.nobodyBookedHint)
                         }
                     }
                     if (upcoming.isNotEmpty()) {
-                        item { SectionTitle("Upcoming (${upcoming.size})") }
+                        item { SectionTitle(tr.upcomingN(upcoming.size)) }
                         items(upcoming, key = { it.bookingId }) { b ->
                             LessonCard(
                                 b, mode, true, onCancel = { cancelTarget = b }, onDone = { checkinTarget = b }, onRate = {},
                                 onShowQr = { qrTarget = b },
                                 onVideo = {
                                     try { uriHandler.openUri(jitsiUrl(b.bookingId, b.createdAt)) }
-                                    catch (e: Exception) { show("No browser found to open the video room") }
+                                    catch (e: Exception) { show(tr.noBrowser) }
                                 },
-                                onCalendar = { if (!addToCalendar(context, b)) show("No calendar app found") },
+                                onCalendar = { if (!addToCalendar(context, b, tr)) show(tr.noCalendar) },
                                 onPlan = { planTarget = b }
                             )
                         }
                     }
                     if (history.isNotEmpty()) {
-                        item { SectionTitle("History (${history.size})", Modifier.padding(top = 8.dp)) }
+                        item { SectionTitle(tr.historyN(history.size), Modifier.padding(top = 8.dp)) }
                         items(history, key = { it.bookingId }) { b ->
                             LessonCard(
                                 b, mode, true, onCancel = {}, onDone = {}, onRate = { rateTarget = b }, onShowQr = {},
@@ -166,10 +169,10 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
 
     cancelTarget?.let { target ->
         ConfirmDialog(
-            title = "Cancel this lesson?",
-            text = if (learnMode) "${target.skillName} · ${slotLabel(target.day, target.hour)}\nThe time becomes free for other learners."
-                   else "${target.learnerName} booked ${target.skillName} · ${slotLabel(target.day, target.hour)}.\nCancel it? The learner will see it as cancelled.",
-            confirmLabel = "Yes, cancel",
+            title = tr.cancelLessonQ,
+            text = if (learnMode) tr.cancelLearnerText(target.skillName, tr.slot(target.day, target.hour))
+                   else tr.cancelTeacherText(target.learnerName, target.skillName, tr.slot(target.day, target.hour)),
+            confirmLabel = tr.yesCancel,
             onConfirm = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 vm.cancel(target.bookingId) { show(it) }
@@ -220,10 +223,11 @@ private fun LessonCard(
     onCancel: () -> Unit, onDone: () -> Unit, onRate: () -> Unit, onShowQr: () -> Unit,
     onVideo: () -> Unit, onCalendar: () -> Unit, onPlan: () -> Unit
 ) {
+    val tr = LocalStrings.current
     val (label, statusColor) = when (b.status) {
-        STATUS_BOOKED -> "Upcoming" to Lavender
-        STATUS_DONE -> "Completed" to Green
-        else -> "Cancelled" to Red
+        STATUS_BOOKED -> tr.statusUpcoming to Lavender
+        STATUS_DONE -> tr.statusCompleted to Green
+        else -> tr.statusCancelled to Red
     }
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -234,49 +238,49 @@ private fun LessonCard(
                 SmallPill(label, statusColor)
             }
             Text(
-                if (learnMode) "Teacher: ${b.teacherName}" else "Learner: ${b.learnerName}",
+                if (learnMode) tr.teacherIs(b.teacherName) else tr.learnerIs(b.learnerName),
                 style = MaterialTheme.typography.bodyMedium
             )
-            Text("📅 ${slotLabel(b.day, b.hour)}   ·   booked ${formatDate(b.createdAt)}",
+            Text("📅 ${tr.slot(b.day, b.hour)}   ·   ${tr.bookedOn(formatDate(b.createdAt))}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (learnMode && b.status == STATUS_BOOKED) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                    Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { Text("✅ Check in") }
-                    OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp)) { Text("Cancel") }
+                    Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { Text(tr.checkIn) }
+                    OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp)) { Text(tr.cancel) }
                 }
             }
             if (b.status == STATUS_BOOKED || (online && b.status == STATUS_DONE)) {
                 Row {
                     if (b.status == STATUS_BOOKED) {
-                        SmallAction("🎥 Video", onVideo)
-                        SmallAction("📅 Calendar", onCalendar)
+                        SmallAction(tr.video, onVideo)
+                        SmallAction(tr.calendar, onCalendar)
                     }
-                    if (online) SmallAction("✨ AI plan", onPlan)
+                    if (online) SmallAction(tr.aiPlan, onPlan)
                 }
             }
             if (!learnMode && b.status == STATUS_BOOKED && b.checkinCode != null) {
                 // the teacher's side: the secret code + a button for the big QR
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text("Check-in code", style = MaterialTheme.typography.labelSmall,
+                        Text(tr.checkinCode, style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(b.checkinCode.toCharArray().joinToString(" "), fontSize = 22.sp,
                             color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
                     }
-                    Button(onClick = onShowQr, shape = RoundedCornerShape(14.dp)) { Text("Show QR") }
+                    Button(onClick = onShowQr, shape = RoundedCornerShape(14.dp)) { Text(tr.showQr) }
                 }
             }
             if (!learnMode && b.status == STATUS_BOOKED) {
                 OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.padding(top = 4.dp)) { Text("Cancel this lesson") }
+                    modifier = Modifier.padding(top = 4.dp)) { Text(tr.cancelThisLesson) }
             }
             if (learnMode && b.status == STATUS_DONE && b.myRating == null) {
-                OutlinedButton(onClick = onRate, shape = RoundedCornerShape(14.dp)) { Text("⭐ Rate this lesson") }
+                OutlinedButton(onClick = onRate, shape = RoundedCornerShape(14.dp)) { Text(tr.rateLesson) }
             }
             if (b.myRating != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Your rating  ", style = MaterialTheme.typography.bodySmall,
+                    Text(tr.yourRating, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     StarRow(b.myRating)
                 }
@@ -289,9 +293,10 @@ private fun LessonCard(
 private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, String) -> Unit) {
     var stars by remember { mutableStateOf(5) }
     var comment by remember { mutableStateOf("") }
+    val tr = LocalStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rate: $title") },
+        title = { Text(tr.rateTitle(title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row {
@@ -303,13 +308,13 @@ private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, Strin
                 }
                 OutlinedTextField(
                     value = comment, onValueChange = { comment = it },
-                    label = { Text("Comment (optional)") }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(tr.commentOptional) }, modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp)
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSend(stars, comment) }) { Text("Send") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = { TextButton(onClick = { onSend(stars, comment) }) { Text(tr.send) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
     )
 }
 
@@ -321,7 +326,7 @@ private fun SmallAction(label: String, onClick: () -> Unit) {
 }
 
 /** Opens the phone's calendar app with the next lesson filled in. Returns false if there is no calendar app. */
-private fun addToCalendar(context: Context, b: BookingLine): Boolean {
+private fun addToCalendar(context: Context, b: BookingLine, tr: Strings): Boolean {
     val start = nextOccurrence(System.currentTimeMillis(), b.day, b.hour, java.util.TimeZone.getDefault())
     val intent = Intent(Intent.ACTION_INSERT)
         .setData(CalendarContract.Events.CONTENT_URI)
@@ -329,7 +334,7 @@ private fun addToCalendar(context: Context, b: BookingLine): Boolean {
         .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, start + 60 * 60 * 1000L)
         .putExtra(CalendarContract.Events.TITLE, "SkillSwap: ${b.skillName}")
         .putExtra(CalendarContract.Events.DESCRIPTION,
-            "Teacher: ${b.teacherName}\nLearner: ${b.learnerName}\nVideo room: ${jitsiUrl(b.bookingId, b.createdAt)}")
+            "${tr.teacherIs(b.teacherName)}\n${tr.learnerIs(b.learnerName)}\n${tr.videoRoom}: ${jitsiUrl(b.bookingId, b.createdAt)}")
     return try {
         context.startActivity(intent)
         true
@@ -344,28 +349,29 @@ private fun PlanDialog(vm: SkillSwapViewModel, b: BookingLine, onDismiss: () -> 
     var plan by remember { mutableStateOf<String?>(null) }
     var source by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val tr = LocalStrings.current
     LaunchedEffect(b.bookingId) {
         vm.lessonPlan(b.bookingId) { p, s, e -> plan = p; source = s; error = e }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("✨ Lesson plan · ${b.skillName}") },
+        title = { Text(tr.planTitle(b.skillName)) },
         text = {
             when {
                 error != null -> Text(error ?: "", color = MaterialTheme.colorScheme.error)
                 plan == null -> Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.height(22.dp))
-                    Text("  Preparing a 60-minute plan…")
+                    Text(tr.preparingPlan)
                 }
                 else -> Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(plan ?: "", style = MaterialTheme.typography.bodyMedium)
-                    Text(if (source == "ai") "Written by AI for this lesson" else "Smart template for this lesson",
+                    Text(if (source == "ai") tr.planByAi else tr.planTemplate,
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
     )
 }
 

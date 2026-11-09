@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.components
 
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -66,22 +67,22 @@ fun QrCode(text: String, modifier: Modifier = Modifier) {
 /** TEACHER: shows the check-in QR and the 4-digit code for one booked lesson. */
 @Composable
 fun TeacherCheckInDialog(bookingId: Long, code: String, skillName: String, learnerName: String, onDismiss: () -> Unit) {
+    val tr = LocalStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Check-in · $skillName") },
+        title = { Text(tr.checkinTitle(skillName)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()) {
                 QrCode(checkinQrText(bookingId, code), Modifier.width(220.dp))
                 Text(code.toCharArray().joinToString(" "), fontSize = 34.sp, fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary)
-                Text("Show this to ${learnerName.substringBefore(' ')} at the lesson. Scanning it confirms you met " +
-                        "and moves 1 credit to you.",
+                Text(tr.showThisTo(learnerName.substringBefore(' ')),
                     style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
     )
 }
 
@@ -98,6 +99,7 @@ fun LearnerCheckInDialog(
     var code by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    val tr = LocalStrings.current
 
     fun send(value: String) {
         busy = true
@@ -117,28 +119,28 @@ fun LearnerCheckInDialog(
                     code = found
                     send(found)
                 } else {
-                    error = "This is not the check-in QR of this lesson."
+                    error = tr.notThisQr
                 }
             }
-            .addOnFailureListener { error = "The scanner is not available here. Type the 4-digit code instead." }
+            .addOnFailureListener { error = tr.scannerUnavailable }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Check in · $skillName") },
+        title = { Text(tr.checkinTitle(skillName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Ask your teacher to show the check-in QR. This proves the lesson really happened.",
+                Text(tr.askTeacherQr,
                     style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = { scan() }, enabled = !busy, shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("📷  Scan teacher's QR") }
-                Text("or type the code", style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(tr.scanQr) }
+                Text(tr.orTypeCode, style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.CenterHorizontally))
                 OutlinedTextField(
                     value = code,
                     onValueChange = { v -> code = v.filter { it.isDigit() }.take(4) },
-                    label = { Text("4-digit code") }, singleLine = true,
+                    label = { Text(tr.code4) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()
                 )
@@ -147,9 +149,9 @@ fun LearnerCheckInDialog(
         },
         confirmButton = {
             TextButton(onClick = { send(code) }, enabled = code.length == 4 && !busy) {
-                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Confirm")
+                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(tr.confirm)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
     )
 }

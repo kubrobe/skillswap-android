@@ -1,5 +1,9 @@
 package uz.skillswap.app
 
+import uz.skillswap.app.ui.i18n.LocalStrings
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -17,12 +21,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Our headers are dark violet, so the status bar icons must be light
+        // Our headers are dark graphite, so the status bar icons must be light
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         setContent {
             SkillSwapTheme {
-                Surface(color = MaterialTheme.colorScheme.background) {
-                    AppNavHost(vm)
+                // the chosen language reaches every screen; changing it redraws the app at once
+                val lang by vm.lang.collectAsStateWithLifecycle()
+                CompositionLocalProvider(LocalStrings provides lang.strings) {
+                    Surface(color = MaterialTheme.colorScheme.background) {
+                        AppNavHost(vm)
+                    }
                 }
             }
         }

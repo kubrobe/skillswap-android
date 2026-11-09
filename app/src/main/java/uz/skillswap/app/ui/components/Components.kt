@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.components
 
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -248,7 +249,7 @@ fun LevelBadge(level: String) {
         modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.25f))
             .padding(horizontal = 10.dp, vertical = 3.dp)
     ) {
-        Text("${levelMedal(level)} $level", style = MaterialTheme.typography.labelSmall,
+        Text("${levelMedal(level)} ${LocalStrings.current.level(level)}", style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface)
     }
 }
@@ -329,7 +330,7 @@ fun ConfirmDialog(
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Go back") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(LocalStrings.current.goBack) } }
     )
 }
 

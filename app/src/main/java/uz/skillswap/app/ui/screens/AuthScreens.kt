@@ -1,5 +1,8 @@
 package uz.skillswap.app.ui.screens
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import uz.skillswap.app.ui.i18n.LanguagePicker
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -41,15 +44,17 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
     var password by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var loading by rememberSaveable { mutableStateOf(false) }
+    val tr = LocalStrings.current
+    val lang by vm.lang.collectAsStateWithLifecycle()
 
-    AuthLayout(title = "Welcome back 👋", subtitle = "Log in to book lessons") {
+    AuthLayout(title = tr.welcomeBack, subtitle = tr.loginSubtitle) {
         OutlinedTextField(
-            value = email, onValueChange = { email = it }, label = { Text("E-mail") },
+            value = email, onValueChange = { email = it }, label = { Text(tr.email) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
         OutlinedTextField(
-            value = password, onValueChange = { password = it }, label = { Text("Password") },
+            value = password, onValueChange = { password = it }, label = { Text(tr.password) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
@@ -68,18 +73,19 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().height(54.dp)
         ) {
-            if (loading) CircularProgressIndicator(Modifier.height(24.dp), color = Color.White) else Text("Log in")
+            if (loading) CircularProgressIndicator(Modifier.height(24.dp), color = Color.White) else Text(tr.logIn)
         }
-        TextButton(onClick = onRegisterClick) { Text("No account? Register") }
+        TextButton(onClick = onRegisterClick) { Text(tr.noAccount) }
         if (loading) {
-            Text("Connecting to the SkillSwap server… the first login can take up to a minute while it wakes up.",
+            Text(tr.wakingServer,
                 style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text("Demo account: aziza@demo.uz / demo12345", style = MaterialTheme.typography.bodySmall,
+        Text(tr.demoAccount, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Same account as on the SkillSwap website.", style = MaterialTheme.typography.bodySmall,
+        Text(tr.sameAccount, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LanguagePicker(lang, { vm.setLanguage(it) }, Modifier.padding(top = 8.dp))
     }
 }
 
@@ -90,14 +96,15 @@ fun RegisterScreen(vm: SkillSwapViewModel, onRegistered: () -> Unit, onBack: () 
     var password by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var loading by rememberSaveable { mutableStateOf(false) }
+    val tr = LocalStrings.current
 
-    AuthLayout(title = "Create account", subtitle = "It takes 20 seconds") {
-        OutlinedTextField(name, { name = it }, label = { Text("Full name") },
+    AuthLayout(title = tr.createAccount, subtitle = tr.takes20s) {
+        OutlinedTextField(name, { name = it }, label = { Text(tr.fullName) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
-        OutlinedTextField(email, { email = it }, label = { Text("E-mail") },
+        OutlinedTextField(email, { email = it }, label = { Text(tr.email) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-        OutlinedTextField(password, { password = it }, label = { Text("Password (min 8, 1 digit)") },
+        OutlinedTextField(password, { password = it }, label = { Text(tr.passwordRule) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
@@ -115,9 +122,9 @@ fun RegisterScreen(vm: SkillSwapViewModel, onRegistered: () -> Unit, onBack: () 
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().height(54.dp)
         ) {
-            if (loading) CircularProgressIndicator(Modifier.height(24.dp), color = Color.White) else Text("Register")
+            if (loading) CircularProgressIndicator(Modifier.height(24.dp), color = Color.White) else Text(tr.register)
         }
-        TextButton(onClick = onBack) { Text("I already have an account") }
+        TextButton(onClick = onBack) { Text(tr.haveAccount) }
     }
 }
 
@@ -128,7 +135,7 @@ private fun AuthLayout(title: String, subtitle: String, content: @Composable () 
             Spacer(Modifier.height(24.dp))
             Text("🔄", fontSize = 44.sp)
             Text("SkillSwap", style = MaterialTheme.typography.headlineLarge, color = Color.White)
-            Text("Trade skills, not bills", style = MaterialTheme.typography.bodyLarge,
+            Text(LocalStrings.current.slogan, style = MaterialTheme.typography.bodyLarge,
                 color = Color.White.copy(alpha = 0.85f))
             Spacer(Modifier.height(28.dp))
         }

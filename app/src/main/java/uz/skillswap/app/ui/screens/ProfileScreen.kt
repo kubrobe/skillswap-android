@@ -1,5 +1,8 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.i18n.LanguagePicker
+import uz.skillswap.app.ui.i18n.Strings
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -68,6 +71,8 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
     val wallet by vm.wallet.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
     val name = user?.fullName ?: ""
+    val tr = LocalStrings.current
+    val lang by vm.lang.collectAsStateWithLifecycle()
 
     val learned = learning.count { it.status == STATUS_DONE }
     val taught = teaching.count { it.status == STATUS_DONE }
@@ -90,11 +95,11 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
             Text(user?.email ?: "", style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.85f))
             val bio = user?.bio ?: ""
-            Text(if (bio.isBlank()) "No bio yet. Tell others what you like to teach." else bio,
+            Text(if (bio.isBlank()) tr.noBio else bio,
                 style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
             Spacer(Modifier.height(10.dp))
             Row {
-                Pill("Edit profile", false, { editing = true },
+                Pill(tr.editProfile, false, { editing = true },
                     idleBg = Color.White.copy(alpha = 0.2f), idleFg = Color.White)
             }
             Spacer(Modifier.height(8.dp))
@@ -102,21 +107,21 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
 
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatCard(myOffers.size, "teaching")
-                StatCard(learned, "learned")
-                StatCard(taught, "taught")
+                StatCard(myOffers.size, tr.statTeaching)
+                StatCard(learned, tr.statLearned)
+                StatCard(taught, tr.statTaught)
             }
 
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionTitle("Reputation")
+                    SectionTitle(tr.reputation)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (reviewCount == 0) "No reviews yet" else "★ $reputation",
+                        Text(if (reviewCount == 0) tr.noReviewsShort else "★ $reputation",
                             style = MaterialTheme.typography.headlineSmall,
                             color = if (reviewCount == 0) MaterialTheme.colorScheme.onSurfaceVariant else Gold,
                             modifier = Modifier.weight(1f))
                         if (reviewCount > 0) {
-                            Text("from $reviewCount review${if (reviewCount == 1) "" else "s"}",
+                            Text(tr.fromReviews(reviewCount),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -126,12 +131,12 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
 
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionTitle("Member level")
+                    SectionTitle(tr.memberLevel)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(if (level == "Newcomer") "🌱" else levelMedal(level), fontSize = 30.sp)
                         Column(Modifier.padding(start = 12.dp)) {
-                            Text(level, style = MaterialTheme.typography.titleMedium)
-                            Text("$done finished lesson${if (done == 1) "" else "s"} (learned + taught)",
+                            Text(tr.level(level), style = MaterialTheme.typography.titleMedium)
+                            Text(tr.finishedLessons(done),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -147,11 +152,11 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                             color = if (level == "Newcomer") MaterialTheme.colorScheme.primary else levelColor(level),
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
-                        Text("$done of $target lessons to reach the next level",
+                        Text(tr.toNextLevel(done, target),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        Text("Top level reached. Thank you for sharing your skills!",
+                        Text(tr.topLevel,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -161,17 +166,17 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
             wallet?.let { w ->
                 AppCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SectionTitle("🪙 Time bank")
+                        SectionTitle(tr.timeBank)
                         Row(verticalAlignment = Alignment.Bottom) {
                             CountUpText(w.balance, MaterialTheme.typography.displaySmall, Gold)
-                            Text("  credits", style = MaterialTheme.typography.titleMedium,
+                            Text(tr.creditsWord, style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.padding(bottom = 6.dp))
                         }
-                        Text("Teach 1 hour → earn 1 credit · Learn 1 hour → spend 1. No money needed.",
+                        Text(tr.timeBankRule,
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         w.history.take(5).forEach { h ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(walletLabel(h), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                Text(walletLabel(h, tr), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                                 Text(if (h.amount > 0) "+${h.amount}" else "${h.amount}",
                                     style = MaterialTheme.typography.labelLarge, color = if (h.amount > 0) Green else Red)
                             }
@@ -185,11 +190,19 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("🌍", fontSize = 30.sp)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text("Community impact", style = MaterialTheme.typography.titleMedium)
-                        Text("Lessons, hours and money saved by all SkillSwap people",
+                        Text(tr.communityImpact, style = MaterialTheme.typography.titleMedium)
+                        Text(tr.communityImpactSub,
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text("›", style = MaterialTheme.typography.headlineSmall, color = Gold)
+                }
+            }
+
+            // English · Oʻzbekcha · Русский: the whole app switches at once
+            AppCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle("🌐 " + tr.language)
+                    LanguagePicker(lang, { vm.setLanguage(it) })
                 }
             }
 
@@ -198,7 +211,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                 shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Red),
                 modifier = Modifier.fillMaxWidth().height(52.dp)
-            ) { Text("Log out", color = Red) }
+            ) { Text(tr.logOut, color = Red) }
         }
     }
 
@@ -232,28 +245,29 @@ private fun EditProfileDialog(
     var name by remember { mutableStateOf(startName) }
     var bio by remember { mutableStateOf(startBio) }
     var error by remember { mutableStateOf<String?>(null) }
+    val tr = LocalStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit profile") },
+        title = { Text(tr.editProfile) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Full name") },
+                OutlinedTextField(name, { name = it }, label = { Text(tr.fullName) },
                     singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(bio, { bio = it }, label = { Text("Short bio") },
+                OutlinedTextField(bio, { bio = it }, label = { Text(tr.shortBio) },
                     shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, bio) { e -> error = e } }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = { TextButton(onClick = { onSave(name, bio) { e -> error = e } }) { Text(tr.save) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
     )
 }
 
-private fun walletLabel(h: WalletLine): String = when (h.reason) {
-    "welcome" -> "🎁 Welcome gift"
-    "booked" -> "📚 Booked ${h.skillName}"
-    "refund" -> "↩️ Refund · ${h.skillName}"
-    "taught" -> "🧑‍🏫 Taught ${h.skillName}"
+private fun walletLabel(h: WalletLine, tr: Strings): String = when (h.reason) {
+    "welcome" -> tr.walletWelcome
+    "booked" -> tr.walletBooked(h.skillName)
+    "refund" -> tr.walletRefund(h.skillName)
+    "taught" -> tr.walletTaught(h.skillName)
     else -> h.reason
 }
 

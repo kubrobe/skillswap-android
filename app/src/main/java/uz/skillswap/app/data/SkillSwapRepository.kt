@@ -281,6 +281,10 @@ class SkillSwapRepository(
     /** Save "what I want to learn"; the server then finds perfect matches. */
     suspend fun setWants(skillIds: List<Long>) = onServer { api.setWants(it, skillIds) }
 
+    /** The chosen app language ("en", "uz", "ru"); kept after log out. null = not chosen yet. */
+    fun savedLanguage(): String? = prefs.getString(KEY_LANG, null)
+    fun saveLanguage(code: String) = prefs.edit().putString(KEY_LANG, code).apply()
+
     /** Community numbers for the Impact screen (public, so no token). */
     suspend fun impact(): uz.skillswap.app.data.remote.Impact = api.impact()
 
@@ -339,6 +343,7 @@ class SkillSwapRepository(
         const val KEY_TOKEN = "server_token"
         const val KEY_LAST_SYNC = "last_sync"
         const val KEY_BALANCE = "wallet_balance"
+        const val KEY_LANG = "language"
         const val SESSION_EXPIRED = "Your session expired. Please log in again."
     }
 }

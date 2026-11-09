@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -60,8 +61,6 @@ import uz.skillswap.app.ui.components.StarRow
 import uz.skillswap.app.ui.components.levelMedal
 import uz.skillswap.app.util.formatDate
 
-private val DAY_FULL = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-
 @Composable
 fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBooked: () -> Unit) {
     val offer by remember(offerId) { vm.offer(offerId) }.collectAsStateWithLifecycle(null)
@@ -71,6 +70,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     var bookedText by remember { mutableStateOf<String?>(null) }   // set after a successful booking
+    val tr = LocalStrings.current
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -81,24 +81,24 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             GradientHeader {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr.back, tint = Color.White)
                 }
                 if (o != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         EmojiTile(o.emoji, o.category, size = 72.dp)
                         Column(Modifier.padding(start = 16.dp)) {
                             Text(o.skillName, style = MaterialTheme.typography.headlineSmall, color = Color.White)
-                            Text("by ${o.teacherName}", style = MaterialTheme.typography.bodyMedium,
+                            Text(tr.byTeacher(o.teacherName), style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.85f))
                         }
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "${levelMedal(o.level)} ${o.level}  ·  ${o.category}  ·  ${ratingText(o)}",
+                        "${levelMedal(o.level)} ${tr.level(o.level)}  ·  ${o.category}  ·  ${ratingText(o, tr.new)}",
                         style = MaterialTheme.typography.labelLarge, color = Color.White
                     )
                     if (o.trusted) {
-                        Text("✓ Trusted teacher · 2+ finished lessons rated 4.5★ or more",
+                        Text(tr.trustedTeacher,
                             style = MaterialTheme.typography.labelMedium, color = Color(0xFF9FF0C6))
                     }
                     Spacer(Modifier.height(8.dp))
@@ -112,19 +112,19 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
             ) {
                 AppCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SectionTitle("About this lesson")
+                        SectionTitle(tr.aboutLesson)
                         Text(o.description, style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
-                SectionTitle("Pick a time", Modifier.padding(top = 6.dp))
+                SectionTitle(tr.pickTime, Modifier.padding(top = 6.dp))
                 slots.forEach { s ->
                     AppCard(Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(DAY_FULL[(s.day - 1).coerceIn(0, 6)], style = MaterialTheme.typography.titleSmall)
+                                Text(tr.daysFull[(s.day - 1).coerceIn(0, 6)], style = MaterialTheme.typography.titleSmall)
                                 Text("${s.hour.toString().padStart(2, '0')}:00",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -136,20 +136,19 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                                     vm.book(s.id) { err ->
                                         if (err == null) {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            bookedText = "${o.skillName} with ${o.teacherName}\n" +
-                                                "${DAY_FULL[(s.day - 1).coerceIn(0, 6)]} " +
-                                                "${s.hour.toString().padStart(2, '0')}:00"
+                                            bookedText = tr.withTeacher(o.skillName, o.teacherName) + "\n" +
+                                                tr.slotFull(s.day, s.hour)
                                         } else scope.launch { snackbar.showSnackbar(err) }
                                     }
                                 }
-                            ) { Text(if (s.isBooked) "Taken" else "Book · 1 🪙") }
+                            ) { Text(if (s.isBooked) tr.taken else tr.bookBtn) }
                         }
                     }
                 }
 
-                SectionTitle("Reviews (${reviews.size})", Modifier.padding(top = 6.dp))
+                SectionTitle(tr.reviewsN(reviews.size), Modifier.padding(top = 6.dp))
                 if (reviews.isEmpty()) {
-                    Text("No reviews yet. Be the first to learn and rate!",
+                    Text(tr.noReviews,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium)
                 }
@@ -190,8 +189,8 @@ private fun BookedDialog(text: String, onDone: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) { Text("✓", color = Color.White, fontSize = 34.sp) }
         },
-        title = { Text("Lesson booked!", textAlign = TextAlign.Center) },
+        title = { Text(LocalStrings.current.lessonBooked, textAlign = TextAlign.Center) },
         text = { Text(text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
-        confirmButton = { TextButton(onClick = onDone) { Text("See my lessons") } }
+        confirmButton = { TextButton(onClick = onDone) { Text(LocalStrings.current.seeMyLessons) } }
     )
 }
