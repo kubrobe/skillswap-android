@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.AppIcon
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.speech.RecognizerIntent
@@ -238,7 +239,7 @@ private fun MicButton(listening: Boolean, label: String, onClick: () -> Unit) {
                 .border(2.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                 .clickable(interactionSource = source, indication = null, onClickLabel = label, onClick = onClick),
             contentAlignment = Alignment.Center
-        ) { Text("🎙️", fontSize = 48.sp, color = OnGold) }
+        ) { AppIcon("mic", size = 54.dp, tint = OnGold) }
     }
 }
 

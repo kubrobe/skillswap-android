@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.AppIcon
 import uz.skillswap.app.ui.components.IconTile
 import uz.skillswap.app.ui.components.SkillIcons
 import androidx.compose.animation.core.Animatable
@@ -123,7 +124,10 @@ fun AchievementsScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
             }
 
             Spacer(Modifier.height(6.dp))
-            SectionTitle("🏆 " + tr.topTeachers)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AppIcon("trophy", size = 22.dp, tint = GoldPrimary)
+                SectionTitle(tr.topTeachers, Modifier.padding(start = 8.dp))
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Pill(tr.thisWeek, weekly, { weekly = true })
                 Pill(tr.allTimeLabel, !weekly, { weekly = false })
@@ -155,7 +159,7 @@ private fun Podium(top: List<LeaderRow>, me: Long, key: Boolean) {
                         delay(listOf(250L, 0L, 450L)[place])
                         rise.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 200f))
                     }
-                    Text(if (place == 0) "👑" else " ", fontSize = 22.sp)
+                    if (place == 0) AppIcon("crown", size = 26.dp, tint = GoldPrimary) else Spacer(Modifier.height(26.dp))
                     Box(
                         Modifier.size(52.dp).clip(CircleShape)
                             .background(if (row.id == me) GoldPrimary else MaterialTheme.colorScheme.surfaceVariant),

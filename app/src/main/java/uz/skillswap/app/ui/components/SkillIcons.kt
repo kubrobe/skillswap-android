@@ -10,8 +10,9 @@ import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.unit.dp
 
 /**
- * SkillSwap's own skill icons, drawn for this app instead of emoji: 24x24 line icons with round ends
- * and a 1.8 stroke, so every skill looks like part of one set (and the same on every phone).
+ * SkillSwap's own icons, drawn for this app instead of emoji: 24x24 line icons with round ends
+ * and a 1.8 stroke, so every skill and every button looks like part of one set (and the same on every
+ * phone). First the skill pictures, then the app's own (coin, orbit, calendar, trophy...).
  * Each icon is a list of SVG-style paths; "true" marks a filled shape (dots, piano keys).
  * The icons are white; the screens tint them (category colour, gold, white on a star...).
  */
@@ -209,6 +210,180 @@ object SkillIcons {
         )),
         "spark" to Spec(0.0f, listOf(
             "M12 3 L13.9 10.1 L21 12 L13.9 13.9 L12 21 L10.1 13.9 L3 12 L10.1 10.1 Z" to false
+        )),
+        "coin" to Spec(0.0f, listOf(
+            "M3.4 12 A8.6 8.6 0 1 0 20.6 12 A8.6 8.6 0 1 0 3.4 12 Z" to false,
+            "M6.1 12 A5.9 5.9 0 1 0 17.9 12 A5.9 5.9 0 1 0 6.1 12 Z" to false,
+            "M10.3 9.4 H13.7 L12 12 L13.7 14.6 H10.3 L12 12 Z" to false
+        )),
+        "orbit" to Spec(-28.0f, listOf(
+            "M9.4 12 A2.6 2.6 0 1 0 14.6 12 A2.6 2.6 0 1 0 9.4 12 Z" to true,
+            "M2.4 12 A9.6 3.8 0 1 0 21.6 12 A9.6 3.8 0 1 0 2.4 12 Z" to false,
+            "M15.35 8.7 A1.45 1.45 0 1 0 18.25 8.7 A1.45 1.45 0 1 0 15.35 8.7 Z" to true
+        )),
+        "cards" to Spec(0.0f, listOf(
+            "M11.4 4.2 H17.6 A2.2 2.2 0 0 1 19.8 6.4 V17 A2.2 2.2 0 0 1 17.6 19.2 H11.4 A2.2 2.2 0 0 1 9.2 17 V6.4 A2.2 2.2 0 0 1 11.4 4.2 Z" to false,
+            "M6.9 6.6 L4.6 7.5 A1.6 1.6 0 0 0 3.7 9.6 L7.1 18.6 A1.6 1.6 0 0 0 9.2 19.5 L10.4 19.1" to false,
+            "M14.5 9.8 L15.6 11.7 L14.5 13.6 L13.4 11.7 Z" to true
+        )),
+        "swap" to Spec(0.0f, listOf(
+            "M4 8.5 H18" to false,
+            "M14.5 5 L18 8.5 L14.5 12" to false,
+            "M20 15.5 H6" to false,
+            "M9.5 12 L6 15.5 L9.5 19" to false
+        )),
+        "check" to Spec(0.0f, listOf(
+            "M5 12.6 L9.8 17.4 L19 7.2" to false
+        )),
+        "check_circle" to Spec(0.0f, listOf(
+            "M3.2 12 A8.8 8.8 0 1 0 20.8 12 A8.8 8.8 0 1 0 3.2 12 Z" to false,
+            "M8.2 12.3 L10.9 15 L15.9 9.6" to false
+        )),
+        "calendar" to Spec(0.0f, listOf(
+            "M6.1 5 H17.9 A2.6 2.6 0 0 1 20.5 7.6 V17.9 A2.6 2.6 0 0 1 17.9 20.5 H6.1 A2.6 2.6 0 0 1 3.5 17.9 V7.6 A2.6 2.6 0 0 1 6.1 5 Z" to false,
+            "M3.5 9.6 H20.5" to false,
+            "M8 3 V6.6" to false,
+            "M16 3 V6.6" to false,
+            "M7.3 13.4 A0.9 0.9 0 1 0 9.1 13.4 A0.9 0.9 0 1 0 7.3 13.4 Z" to true,
+            "M11.1 13.4 A0.9 0.9 0 1 0 12.9 13.4 A0.9 0.9 0 1 0 11.1 13.4 Z" to true,
+            "M14.9 13.4 A0.9 0.9 0 1 0 16.7 13.4 A0.9 0.9 0 1 0 14.9 13.4 Z" to true,
+            "M7.3 16.9 A0.9 0.9 0 1 0 9.1 16.9 A0.9 0.9 0 1 0 7.3 16.9 Z" to true,
+            "M11.1 16.9 A0.9 0.9 0 1 0 12.9 16.9 A0.9 0.9 0 1 0 11.1 16.9 Z" to true
+        )),
+        "video" to Spec(0.0f, listOf(
+            "M5.4 6.4 H13 A2.6 2.6 0 0 1 15.6 9 V15 A2.6 2.6 0 0 1 13 17.6 H5.4 A2.6 2.6 0 0 1 2.8 15 V9 A2.6 2.6 0 0 1 5.4 6.4 Z" to false,
+            "M15.6 10.4 L20.4 7.6 A0.6 0.6 0 0 1 21.3 8.1 V15.9 A0.6 0.6 0 0 1 20.4 16.4 L15.6 13.6" to false
+        )),
+        "gift" to Spec(0.0f, listOf(
+            "M5 8.6 H19 A1.2 1.2 0 0 1 20.2 9.8 V11.8 A1.2 1.2 0 0 1 19 13 H5 A1.2 1.2 0 0 1 3.8 11.8 V9.8 A1.2 1.2 0 0 1 5 8.6 Z" to false,
+            "M5.4 13 V19.2 A1.3 1.3 0 0 0 6.7 20.5 H17.3 A1.3 1.3 0 0 0 18.6 19.2 V13" to false,
+            "M12 8.6 V20.5" to false,
+            "M12 8.6 C10.6 5.2 6.9 4.7 6.9 7 C6.9 8.2 8.6 8.6 12 8.6 C15.4 8.6 17.1 8.2 17.1 7 C17.1 4.7 13.4 5.2 12 8.6 Z" to false
+        )),
+        "trophy" to Spec(0.0f, listOf(
+            "M7.2 4 H16.8 V9.2 A4.8 4.8 0 0 1 7.2 9.2 Z" to false,
+            "M7.2 5.8 H4.6 C4.6 8.8 5.6 10.6 7.6 11.2" to false,
+            "M16.8 5.8 H19.4 C19.4 8.8 18.4 10.6 16.4 11.2" to false,
+            "M12 14 V17.2" to false,
+            "M8.6 20.6 H15.4" to false,
+            "M9.6 20.6 L10.2 17.2 H13.8 L14.4 20.6" to false
+        )),
+        "crown" to Spec(0.0f, listOf(
+            "M4.4 17.4 L3.2 7.6 L8.2 11.4 L12 5 L15.8 11.4 L20.8 7.6 L19.6 17.4 Z" to false,
+            "M4.6 20.4 H19.4" to false
+        )),
+        "shield" to Spec(0.0f, listOf(
+            "M12 3 L19.4 5.9 V11.4 C19.4 15.9 16.3 19.5 12 21 C7.7 19.5 4.6 15.9 4.6 11.4 V5.9 Z" to false,
+            "M8.8 12.1 L11.1 14.4 L15.3 10" to false
+        )),
+        "compass" to Spec(0.0f, listOf(
+            "M3.2 12 A8.8 8.8 0 1 0 20.8 12 A8.8 8.8 0 1 0 3.2 12 Z" to false,
+            "M15.2 8.8 L13.4 13.4 L8.8 15.2 L10.6 10.6 Z" to false,
+            "M11.2 12 A0.8 0.8 0 1 0 12.8 12 A0.8 0.8 0 1 0 11.2 12 Z" to true
+        )),
+        "plane" to Spec(0.0f, listOf(
+            "M21 3.6 L2.8 10.8 L9.6 13.6 L12.4 20.6 Z" to false,
+            "M21 3.6 L9.6 13.6" to false
+        )),
+        "users" to Spec(0.0f, listOf(
+            "M5.7 8.4 A3.3 3.3 0 1 0 12.3 8.4 A3.3 3.3 0 1 0 5.7 8.4 Z" to false,
+            "M2.8 19.6 C2.8 16 5.6 14 9 14 C12.4 14 15.2 16 15.2 19.6" to false,
+            "M15.4 5.3 A3.2 3.2 0 0 1 15.4 11.5" to false,
+            "M17.6 14.4 C19.8 15 21.2 16.9 21.2 19.6" to false
+        )),
+        "clock" to Spec(0.0f, listOf(
+            "M3.2 12 A8.8 8.8 0 1 0 20.8 12 A8.8 8.8 0 1 0 3.2 12 Z" to false,
+            "M12 7.4 V12 L15.2 14" to false
+        )),
+        "trend_up" to Spec(0.0f, listOf(
+            "M3 16.8 L9 10.8 L13 14.8 L21 6.8" to false,
+            "M15.4 6.8 H21 V12.4" to false
+        )),
+        "trend_down" to Spec(0.0f, listOf(
+            "M3 7.2 L9 13.2 L13 9.2 L21 17.2" to false,
+            "M15.4 17.2 H21 V11.6" to false
+        )),
+        "signal_off" to Spec(0.0f, listOf(
+            "M4.6 10.6 A10.6 10.6 0 0 1 19.4 10.6" to false,
+            "M7.7 13.9 A6.2 6.2 0 0 1 16.3 13.9" to false,
+            "M10.9 17.8 A1.1 1.1 0 1 0 13.1 17.8 A1.1 1.1 0 1 0 10.9 17.8 Z" to true,
+            "M4 3.6 L20 20.4" to false
+        )),
+        "heart" to Spec(0.0f, listOf(
+            "M12 20 C12 20 3.4 14.9 3.4 9 C3.4 6.2 5.5 4.2 8 4.2 C9.7 4.2 11.2 5.2 12 6.6 C12.8 5.2 14.3 4.2 16 4.2 C18.5 4.2 20.6 6.2 20.6 9 C20.6 14.9 12 20 12 20 Z" to false
+        )),
+        "heart_fill" to Spec(0.0f, listOf(
+            "M12 20 C12 20 3.4 14.9 3.4 9 C3.4 6.2 5.5 4.2 8 4.2 C9.7 4.2 11.2 5.2 12 6.6 C12.8 5.2 14.3 4.2 16 4.2 C18.5 4.2 20.6 6.2 20.6 9 C20.6 14.9 12 20 12 20 Z" to true
+        )),
+        "close" to Spec(0.0f, listOf(
+            "M6.2 6.2 L17.8 17.8" to false,
+            "M17.8 6.2 L6.2 17.8" to false
+        )),
+        "search" to Spec(0.0f, listOf(
+            "M4.2 10.6 A6.4 6.4 0 1 0 17 10.6 A6.4 6.4 0 1 0 4.2 10.6 Z" to false,
+            "M15.4 15.4 L20.4 20.4" to false
+        )),
+        "bell" to Spec(0.0f, listOf(
+            "M6 16.6 V11 A6 6 0 0 1 18 11 V16.6 L19.6 18.2 H4.4 Z" to false,
+            "M10 20.6 A2.1 2.1 0 0 0 14 20.6" to false
+        )),
+        "hourglass" to Spec(0.0f, listOf(
+            "M6.6 3.4 H17.4" to false,
+            "M6.6 20.6 H17.4" to false,
+            "M8 3.4 C8 8 12 9.4 12 12 C12 14.6 8 16 8 20.6" to false,
+            "M16 3.4 C16 8 12 9.4 12 12 C12 14.6 16 16 16 20.6" to false,
+            "M9.6 18.6 C10.2 17 11.4 16.4 12 16.4 C12.6 16.4 13.8 17 14.4 18.6 Z" to true
+        )),
+        "party" to Spec(0.0f, listOf(
+            "M3.6 20.4 L8.4 8.6 L15.4 15.6 Z" to false,
+            "M7.1 11.8 L12.2 16.9" to false,
+            "M13.6 3.8 C13.6 5.8 15 6.6 15 8.4" to false,
+            "M20.2 10.4 C18.2 10.4 17.4 9 15.6 9" to false,
+            "M17.5 5.4 A1.1 1.1 0 1 0 19.7 5.4 A1.1 1.1 0 1 0 17.5 5.4 Z" to true,
+            "M10.2 4.2 A0.8 0.8 0 1 0 11.8 4.2 A0.8 0.8 0 1 0 10.2 4.2 Z" to true,
+            "M19.4 14.2 A0.8 0.8 0 1 0 21 14.2 A0.8 0.8 0 1 0 19.4 14.2 Z" to true
+        )),
+        "refresh" to Spec(0.0f, listOf(
+            "M19.6 10.4 A7.8 7.8 0 0 0 5.4 7.6" to false,
+            "M4.6 3.8 V8 H8.8" to false,
+            "M4.4 13.6 A7.8 7.8 0 0 0 18.6 16.4" to false,
+            "M19.4 20.2 V16 H15.2" to false
+        )),
+        "sparkle" to Spec(0.0f, listOf(
+            "M10 3.4 L11.7 8.3 L16.6 10 L11.7 11.7 L10 16.6 L8.3 11.7 L3.4 10 L8.3 8.3 Z" to false,
+            "M17.6 14 L18.4 16.2 L20.6 17 L18.4 17.8 L17.6 20 L16.8 17.8 L14.6 17 L16.8 16.2 Z" to true
+        )),
+        "scan" to Spec(0.0f, listOf(
+            "M4 8.4 V6 A2 2 0 0 1 6 4 H8.4" to false,
+            "M15.6 4 H18 A2 2 0 0 1 20 6 V8.4" to false,
+            "M20 15.6 V18 A2 2 0 0 1 18 20 H15.6" to false,
+            "M8.4 20 H6 A2 2 0 0 1 4 18 V15.6" to false,
+            "M4 12 H20" to false
+        )),
+        "undo" to Spec(0.0f, listOf(
+            "M9 14 L4.4 9.4 L9 4.8" to false,
+            "M4.4 9.4 H14.4 A5.4 5.4 0 0 1 14.4 20.2 H10.6" to false
+        )),
+        "star" to Spec(0.0f, listOf(
+            "M12 3.4 L14.6 8.7 L20.4 9.5 L16.2 13.6 L17.2 19.4 L12 16.7 L6.8 19.4 L7.8 13.6 L3.6 9.5 L9.4 8.7 Z" to false
+        )),
+        "star_fill" to Spec(0.0f, listOf(
+            "M12 3.4 L14.6 8.7 L20.4 9.5 L16.2 13.6 L17.2 19.4 L12 16.7 L6.8 19.4 L7.8 13.6 L3.6 9.5 L9.4 8.7 Z" to true
+        )),
+        "language" to Spec(0.0f, listOf(
+            "M3.6 5.6 H12.4" to false,
+            "M8 3.6 V5.6" to false,
+            "M10.6 5.6 C10 9.6 7.6 12.6 4.2 14.2" to false,
+            "M6.4 8.8 C7.4 10.8 9 12.4 11 13.4" to false,
+            "M12.4 20.4 L16.2 11.4 L20 20.4" to false,
+            "M13.6 17.6 H18.8" to false
+        )),
+        "bolt" to Spec(0.0f, listOf(
+            "M13.2 2.8 L5.4 13.4 H11.6 L10.8 21.2 L18.6 10.6 H12.4 Z" to false
+        )),
+        "wallet" to Spec(0.0f, listOf(
+            "M18.4 7 V5.4 A1.6 1.6 0 0 0 16.8 3.8 H5.6 A2.2 2.2 0 0 0 3.4 6 V18 A2.2 2.2 0 0 0 5.6 20.2 H18.4 A2.2 2.2 0 0 0 20.6 18 V9.2 A2.2 2.2 0 0 0 18.4 7 H5.6 A2.2 2.2 0 0 1 3.4 4.8" to false,
+            "M15.4 13.6 A1.2 1.2 0 1 0 17.8 13.6 A1.2 1.2 0 1 0 15.4 13.6 Z" to true
         ))
     )
 
@@ -216,6 +391,9 @@ object SkillIcons {
 
     /** Every icon id, e.g. for preparing them all at once. */
     val ids: List<String> get() = specs.keys.toList()
+
+    /** Only the skill pictures (up to "spark"); the rest of the set is for buttons and labels. */
+    val skillIds: List<String> get() = ids.let { it.subList(0, it.indexOf("spark") + 1) }
 
     /** The icon with this id ("guitar", "python"...); unknown ids get the spark. */
     fun named(id: String): ImageVector = cache.getOrPut(id) { build(id, specs[id] ?: specs.getValue("spark")) }

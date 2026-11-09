@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.IconText
 import androidx.compose.material3.Icon
 import uz.skillswap.app.ui.components.SkillIcons
 import uz.skillswap.app.ui.components.SkillTile
@@ -71,7 +72,6 @@ import uz.skillswap.app.ui.components.LevelBadge
 import uz.skillswap.app.ui.components.Pill
 import uz.skillswap.app.ui.components.SectionTitle
 import uz.skillswap.app.ui.components.levelColor
-import uz.skillswap.app.ui.components.levelMedal
 import uz.skillswap.app.util.DAY_NAMES
 import uz.skillswap.app.util.hasDuplicateSlots
 import uz.skillswap.app.util.slotLabel
@@ -174,7 +174,8 @@ fun TeachScreen(vm: SkillSwapViewModel) {
 
                         slots.forEach { s ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🕒 ${tr.slot(s.first, s.second)}", Modifier.weight(1f))
+                                IconText("🕒 ${tr.slot(s.first, s.second)}", Modifier.weight(1f),
+                                    iconColor = MaterialTheme.colorScheme.primary)
                                 TextButton(onClick = { slots = slots - s }) { Text(tr.remove) }
                             }
                         }
@@ -218,7 +219,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
 
                 SectionTitle(tr.myListings(myOffers.size), Modifier.padding(top = 6.dp))
                 if (myOffers.isEmpty()) {
-                    EmptyState("🌱", tr.noListings, tr.noListingsHint)
+                    EmptyState("sprout", tr.noListings, tr.noListingsHint)
                 }
                 myOffers.forEach { o ->
                     AppCard(Modifier.fillMaxWidth()) {

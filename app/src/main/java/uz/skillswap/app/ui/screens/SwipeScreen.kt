@@ -1,5 +1,8 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.IconBubble
+import uz.skillswap.app.ui.components.AppIcon
+import uz.skillswap.app.ui.components.IconText
 import uz.skillswap.app.ui.components.SkillIcons
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.activity.compose.BackHandler
@@ -159,8 +162,8 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp)) {
             val widthPx = with(LocalDensity.current) { maxWidth.toPx() }
             when {
-                deck == null -> EmptyDeck("⏳", tr.loadingLessons, null)
-                cards.isEmpty() -> EmptyDeck("🙌", tr.noLessonsToSwipe, tr.allFull)
+                deck == null -> EmptyDeck("hourglass", tr.loadingLessons, null)
+                cards.isEmpty() -> EmptyDeck("party", tr.noLessonsToSwipe, tr.allFull)
                 top == null -> DeckDone(liked, onOpen = { id -> vm.saveLiked(liked.map { it.offer.skillId }); onOpen(id) }, onDone = close)
                 else -> {
                     // remembered per card: a new card always starts in the middle
@@ -234,8 +237,8 @@ fun SwipeScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> U
                         Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(28.dp)
                     ) {
-                        RoundAction("✕", Red, tr.skip) { fling(false) }
-                        RoundAction("♥", GoldPrimary, tr.iWantToLearn) { fling(true) }
+                        RoundAction("close", Red, tr.skip) { fling(false) }
+                        RoundAction("heart_fill", GoldPrimary, tr.iWantToLearn) { fling(true) }
                     }
                 }
             }
@@ -284,14 +287,14 @@ private fun LessonCard(card: DeckCard, modifier: Modifier, onClick: (() -> Unit)
                 if (o.trusted) SmallPill(tr.trusted, Green)
             }
             if (card.theyWant != null) {
-                Text(
+                IconText(
                     tr.swapBadge(card.theyWant),
                     color = OnGold, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(14.dp)
                         .clip(RoundedCornerShape(50)).background(GoldPrimary).padding(horizontal = 14.dp, vertical = 6.dp)
                 )
             } else if (card.isMatch) {
-                Text(
+                IconText(
                     "✨ " + tr.teachesYourWish, color = Color.White, style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(14.dp)
                         .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.22f)).padding(horizontal = 14.dp, vertical = 6.dp)
@@ -328,7 +331,7 @@ private fun Stamp(text: String, color: Color, modifier: Modifier) {
 }
 
 @Composable
-private fun RoundAction(symbol: String, color: Color, label: String, onClick: () -> Unit) {
+private fun RoundAction(icon: String, color: Color, label: String, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     Box(
         Modifier.size(64.dp).pressScale(source)
@@ -337,13 +340,13 @@ private fun RoundAction(symbol: String, color: Color, label: String, onClick: ()
             .border(2.dp, color.copy(alpha = 0.7f), CircleShape)
             .clickable(interactionSource = source, indication = null, onClickLabel = label, onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Text(symbol, color = color, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+    ) { AppIcon(icon, size = 28.dp, tint = color) }
 }
 
 @Composable
-private fun EmptyDeck(emoji: String, title: String, text: String?) {
+private fun EmptyDeck(icon: String, title: String, text: String?) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text(emoji, fontSize = 56.sp)
+        IconBubble(icon, size = 96.dp)
         Spacer(Modifier.height(10.dp))
         Text(title, style = MaterialTheme.typography.titleLarge)
         if (text != null) Text(text, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
@@ -356,7 +359,8 @@ private fun EmptyDeck(emoji: String, title: String, text: String?) {
 private fun DeckDone(liked: List<DeckCard>, onOpen: (Long) -> Unit, onDone: () -> Unit) {
     val tr = LocalStrings.current
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("🎉", fontSize = 56.sp)
+        IconBubble("party", size = 92.dp)
+        Spacer(Modifier.height(10.dp))
         Text(tr.thatsEveryone, style = MaterialTheme.typography.titleLarge)
         Text(
             if (liked.isEmpty()) tr.nothingCaught else tr.likedSaved(liked.size),
@@ -399,7 +403,7 @@ private fun SwapOverlay(card: DeckCard, myName: String, onBook: () -> Unit, onKe
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(initials(myName), null, Modifier.graphicsLayer { translationX = -(1f - enter.value) * 320f })
-                Text("🔁", fontSize = 32.sp, modifier = Modifier.padding(horizontal = 10.dp)
+                AppIcon("swap", size = 36.dp, tint = GoldPrimary, modifier = Modifier.padding(horizontal = 10.dp)
                     .graphicsLayer { rotationZ = enter.value * 360f })
                 Avatar(initials(card.offer.teacherName), SkillIcons.idFor(card.offer.skillName, card.offer.category),
                     Modifier.graphicsLayer { translationX = (1f - enter.value) * 320f })
@@ -412,7 +416,7 @@ private fun SwapOverlay(card: DeckCard, myName: String, onBook: () -> Unit, onKe
                 onClick = onBook, shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary, contentColor = OnGold),
                 modifier = Modifier.fillMaxWidth().height(54.dp)
-            ) { Text(tr.bookLesson, fontWeight = FontWeight.Bold) }
+            ) { IconText(tr.bookLesson, fontWeight = FontWeight.Bold) }
             TextButton(onClick = onKeep) { Text(tr.keepSwiping, color = Color.White) }
         }
     }

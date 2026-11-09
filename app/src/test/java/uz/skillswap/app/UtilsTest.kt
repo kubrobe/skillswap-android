@@ -1,5 +1,6 @@
 package uz.skillswap.app
 
+import uz.skillswap.app.ui.components.splitIcons
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -12,7 +13,7 @@ import uz.skillswap.app.ui.i18n.Lang
 import uz.skillswap.app.ui.i18n.Ru
 import uz.skillswap.app.ui.i18n.Uz
 import uz.skillswap.app.ui.components.SkillIcons
-import uz.skillswap.app.ui.components.badgeEmoji
+import uz.skillswap.app.ui.components.badgeIcon
 import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.buildDeck
 import uz.skillswap.app.util.formatUzs
@@ -163,7 +164,8 @@ class UtilsTest {
 
     @Test fun badges_haveAPictureAndANameInEveryLanguage() {
         val ids = listOf("first_lesson", "first_teach", "mentor", "five_star", "trusted", "explorer", "perfect_swap", "critic")
-        assertEquals(ids.size, ids.map { badgeEmoji(it) }.toSet().size)        // every badge looks different
+        assertEquals(ids.size, ids.map { badgeIcon(it) }.toSet().size)         // every badge looks different
+        assertTrue(ids.all { badgeIcon(it) in SkillIcons.ids })              // ...and is drawn in our icon set
         for (id in ids) {
             assertNotEquals(id, En.badgeTitle(id))                             // a real name, not the id
             assertNotEquals(En.badgeTitle(id), Uz.badgeTitle(id))
@@ -189,5 +191,29 @@ class UtilsTest {
         catalog.forEach { (name, emoji) -> assertEquals(name, SkillIcons.idFor(name), SkillIcons.idForEmoji(emoji)) }
         assertEquals("note", SkillIcons.idFor("Violin", "Music"))         // unknown skill: its category's icon
         assertEquals("spark", SkillIcons.idFor("Something new"))
+    }
+
+    @Test fun emojiInTexts_areDrawnAsOurIcons() {
+        val coin = splitIcons("Book · 1 🪙")
+        assertEquals(listOf("Book · 1 ", "🪙"), coin.map { it.text })
+        assertEquals(listOf(null, "coin"), coin.map { it.icon })
+        assertEquals(listOf("📷", " Scan teacher's QR"), splitIcons("📷  Scan teacher's QR").map { it.text })  // one space kept
+        assertEquals(listOf("undo", null), splitIcons("↩️ Refund · Guitar").map { it.icon })                     // with the emoji marker
+        assertEquals("easel", splitIcons("🧑‍🏫 Taught Guitar")[0].icon)                                          // joined emoji
+        assertEquals(listOf("Welcome back"), splitIcons("Welcome back 👋").map { it.text })                       // waving hand left out
+        // every text of the app (and a live line from the server) ends up with icons only, no emoji left
+        val leftover = setOf(0x2728, 0x2705, 0x2B50, 0x21A9, 0xFE0F)
+        for (tr in listOf(En, Uz, Ru)) {
+            val texts = listOf(tr.perHour, tr.bookLesson, tr.bookBtn, tr.checkIn, tr.video, tr.calendar, tr.aiPlan, tr.rateLesson,
+                tr.scanQr, tr.timeBank, tr.walletWelcome, tr.walletBooked("Chess"), tr.walletRefund("Chess"), tr.walletTaught("Chess"),
+                tr.byAi, tr.telegramConnected, tr.perfectMatches, tr.perfectSwap("Chess"), tr.swapBadge("Chess"),
+                tr.planTitle("Chess"), tr.hi("Aziza"), tr.welcomeBack, "Jasur taught Guitar · +1 🪙")
+            for (t in texts) {
+                val pieces = splitIcons(t)
+                pieces.forEach { p -> if (p.icon != null) assertTrue(p.icon, p.icon in SkillIcons.ids) }
+                val plain = pieces.filter { it.icon == null }.joinToString("") { it.text }
+                assertTrue(t, plain.codePoints().noneMatch { it >= 0x1F000 || it in leftover })
+            }
+        }
     }
 }

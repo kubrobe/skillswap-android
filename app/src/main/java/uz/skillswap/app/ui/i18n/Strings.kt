@@ -65,7 +65,7 @@ open class Strings {
 
     // ---- login / register ----
     open val slogan = "Trade skills, not bills"
-    open val welcomeBack = "Welcome back 👋"
+    open val welcomeBack = "Welcome back"
     open val loginSubtitle = "Log in to book lessons"
     open val email = "E-mail"
     open val password = "Password"
@@ -82,7 +82,7 @@ open class Strings {
     open val haveAccount = "I already have an account"
 
     // ---- browse ----
-    open fun hi(name: String) = "Hi, $name 👋"
+    open fun hi(name: String) = "Hi, $name"
     open val guest = "guest"
     open val whatToLearn = "What do you want to learn today?"
     open val searchHint = "Search skills or teachers"
@@ -266,7 +266,9 @@ open class Strings {
     // ---- skill galaxy ----
     open val galaxyTitle = "Skill Galaxy"
     open fun galaxyStats(people: Int, lessons: Int) = "$people people · $lessons lessons"
-    open val galaxyHint = "Pinch to zoom · tap a star · knowledge flows from teacher to learner"
+    open val galaxyHint = "Inner orbit = people you swapped with · pinch to zoom · tap a star"
+    /** Category names come from the server in English. */
+    open fun categoryName(category: String) = category
     open val galaxyEmpty = "No lessons yet"
     open val galaxyEntrySub = "See who teaches whom, live"
     open val you = "You"
@@ -357,7 +359,7 @@ object Uz : Strings() {
     override fun daysAgo(n: Long) = "$n kun oldin"
 
     override val slogan = "Pul emas, bilim almashing"
-    override val welcomeBack = "Xush kelibsiz 👋"
+    override val welcomeBack = "Xush kelibsiz"
     override val loginSubtitle = "Darslarga yozilish uchun kiring"
     override val password = "Parol"
     override val logIn = "Kirish"
@@ -372,7 +374,7 @@ object Uz : Strings() {
     override val register = "Roʻyxatdan oʻtish"
     override val haveAccount = "Menda akkaunt bor"
 
-    override fun hi(name: String) = "Salom, $name 👋"
+    override fun hi(name: String) = "Salom, $name"
     override val guest = "mehmon"
     override val whatToLearn = "Bugun nimani oʻrganmoqchisiz?"
     override val searchHint = "Koʻnikma yoki ustoz qidiring"
@@ -547,7 +549,17 @@ object Uz : Strings() {
 
     override val galaxyTitle = "Bilim galaktikasi"
     override fun galaxyStats(people: Int, lessons: Int) = "$people kishi · $lessons dars"
-    override val galaxyHint = "Kattalashtirish uchun chimchilang · yulduzga bosing · bilim ustozdan oʻquvchiga oqadi"
+    override val galaxyHint = "Ichki orbita — siz bilan almashganlar · chimchilab kattalashtiring · yulduzga bosing"
+    override fun categoryName(category: String) = when (category) {
+        "Programming", "Tech" -> "Dasturlash"
+        "Languages" -> "Tillar"
+        "Design" -> "Dizayn"
+        "Music" -> "Musiqa"
+        "Fitness & Sport" -> "Fitnes va sport"
+        "Business & Study" -> "Biznes va taʼlim"
+        "Cooking & Crafts", "Life" -> "Oshpazlik va hunar"
+        else -> category
+    }
     override val galaxyEmpty = "Hali dars yoʻq"
     override val galaxyEntrySub = "Kim kimga oʻrgatayotganini jonli koʻring"
     override val you = "Siz"
@@ -633,7 +645,7 @@ object Ru : Strings() {
     override fun daysAgo(n: Long) = "$n дн назад"
 
     override val slogan = "Меняйтесь навыками, а не деньгами"
-    override val welcomeBack = "С возвращением 👋"
+    override val welcomeBack = "С возвращением"
     override val loginSubtitle = "Войдите, чтобы записываться на уроки"
     override val password = "Пароль"
     override val logIn = "Войти"
@@ -648,7 +660,7 @@ object Ru : Strings() {
     override val register = "Зарегистрироваться"
     override val haveAccount = "У меня уже есть аккаунт"
 
-    override fun hi(name: String) = "Привет, $name 👋"
+    override fun hi(name: String) = "Привет, $name"
     override val guest = "гость"
     override val whatToLearn = "Чему хотите научиться сегодня?"
     override val searchHint = "Поиск навыков или учителей"
@@ -823,7 +835,17 @@ object Ru : Strings() {
 
     override val galaxyTitle = "Галактика навыков"
     override fun galaxyStats(people: Int, lessons: Int) = "участников: $people · уроков: $lessons"
-    override val galaxyHint = "Щипок — масштаб · нажмите на звезду · знания текут от учителя к ученику"
+    override val galaxyHint = "Внутренняя орбита — те, с кем вы обменивались · щипок — масштаб · нажмите на звезду"
+    override fun categoryName(category: String) = when (category) {
+        "Programming", "Tech" -> "Программирование"
+        "Languages" -> "Языки"
+        "Design" -> "Дизайн"
+        "Music" -> "Музыка"
+        "Fitness & Sport" -> "Фитнес и спорт"
+        "Business & Study" -> "Бизнес и учёба"
+        "Cooking & Crafts", "Life" -> "Кулинария и ремёсла"
+        else -> category
+    }
     override val galaxyEmpty = "Пока нет уроков"
     override val galaxyEntrySub = "Смотрите вживую, кто кого учит"
     override val you = "Вы"

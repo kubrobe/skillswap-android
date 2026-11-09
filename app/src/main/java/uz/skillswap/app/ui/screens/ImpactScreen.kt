@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.IconTile
+import uz.skillswap.app.ui.components.AppIcon
 import uz.skillswap.app.ui.components.SkillIcon
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.Animatable
@@ -103,7 +105,7 @@ fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit, onGalaxy: () -> Uni
 
         val data = impact
         if (data == null && error != null) {
-            EmptyState("📡", tr.couldNotLoad, error ?: "")
+            EmptyState("signal_off", tr.couldNotLoad, error ?: "")
             TextButton(onClick = { vm.loadImpact() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Text(tr.tryAgain)
             }
@@ -116,7 +118,7 @@ fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit, onGalaxy: () -> Uni
             // the same community as a living picture
             AppCard(Modifier.fillMaxWidth(), onClick = onGalaxy) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("🌌", fontSize = 30.sp)
+                    IconTile("orbit", "", size = 46.dp, color = GoldPrimary)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(tr.galaxyTitle, style = MaterialTheme.typography.titleMedium)
                         Text(tr.galaxyEntrySub, style = MaterialTheme.typography.bodySmall,
@@ -126,15 +128,15 @@ fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit, onGalaxy: () -> Uni
                 }
             }
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("👥", data.members, tr.statMembers, null)
-                StatTile("🎓", data.lessonsDone, tr.statLessonsFinished, tr.comingUp(data.upcoming))
+                StatTile("users", data.members, tr.statMembers, null)
+                StatTile("cap", data.lessonsDone, tr.statLessonsFinished, tr.comingUp(data.upcoming))
             }
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("⏱️", data.hoursShared, tr.statHours, null)
-                StatTile("🪙", data.credits, tr.statCredits, tr.creditIsHour)
+                StatTile("clock", data.hoursShared, tr.statHours, null)
+                StatTile("coin", data.credits, tr.statCredits, tr.creditIsHour)
             }
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatTile("🧑‍🏫", data.teachers, tr.statTeachers, tr.differentSkills(data.skills))
+                StatTile("easel", data.teachers, tr.statTeachers, tr.differentSkills(data.skills))
                 RatingTile(data)
             }
             WeeklyCard(data.weekly)
@@ -157,10 +159,10 @@ private fun MoneyCountUp(target: Long) {
 }
 
 @Composable
-private fun RowScope.StatTile(emoji: String, value: Int, label: String, sub: String?) {
+private fun RowScope.StatTile(icon: String, value: Int, label: String, sub: String?) {
     AppCard(Modifier.weight(1f).fillMaxHeight()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(emoji, fontSize = 22.sp)
+            AppIcon(icon, size = 24.dp, tint = GoldDeep)
             CountUpText(value, MaterialTheme.typography.headlineSmall, MaterialTheme.colorScheme.onSurface)
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = GoldDeep)
@@ -173,7 +175,7 @@ private fun RowScope.RatingTile(data: Impact) {
     val tr = LocalStrings.current
     AppCard(Modifier.weight(1f).fillMaxHeight()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("⭐", fontSize = 22.sp)
+            AppIcon("star_fill", size = 24.dp, tint = Gold)
             Text(if (data.reviews == 0) "–" else "${data.avgRating}", style = MaterialTheme.typography.headlineSmall, color = Gold)
             Text(tr.avgRating, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(tr.reviewsCount(data.reviews), style = MaterialTheme.typography.labelSmall, color = GoldDeep)
@@ -197,10 +199,11 @@ private fun WeeklyCard(weeks: List<WeekCount>) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SectionTitle(tr.perWeek, Modifier.weight(1f))
                 if (growth != null) {
+                    val trendColor = if (growth >= 0) Green else MaterialTheme.colorScheme.error
+                    AppIcon(if (growth >= 0) "trend_up" else "trend_down", size = 18.dp, tint = trendColor)
                     Text(
-                        (if (growth >= 0) "📈 +" else "📉 ") + "$growth%",
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
-                        color = if (growth >= 0) Green else MaterialTheme.colorScheme.error
+                        (if (growth >= 0) " +" else " ") + "$growth%",
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = trendColor
                     )
                 }
             }

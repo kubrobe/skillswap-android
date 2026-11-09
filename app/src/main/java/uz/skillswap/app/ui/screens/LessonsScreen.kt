@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.AppIcon
+import uz.skillswap.app.ui.components.IconText
 import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.i18n.Strings
 import uz.skillswap.app.ui.i18n.LocalStrings
@@ -135,8 +137,8 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                 ) {
                     if (lines.isEmpty()) {
                         item {
-                            if (mode) EmptyState("🎓", tr.noLessonsYet, tr.noLessonsHint)
-                            else EmptyState("🧑‍🏫", tr.nobodyBooked, tr.nobodyBookedHint)
+                            if (mode) EmptyState("cap", tr.noLessonsYet, tr.noLessonsHint)
+                            else EmptyState("easel", tr.nobodyBooked, tr.nobodyBookedHint)
                         }
                     }
                     if (upcoming.isNotEmpty()) {
@@ -242,12 +244,12 @@ private fun LessonCard(
                 if (learnMode) tr.teacherIs(b.teacherName) else tr.learnerIs(b.learnerName),
                 style = MaterialTheme.typography.bodyMedium
             )
-            Text("📅 ${tr.slot(b.day, b.hour)}   ·   ${tr.bookedOn(formatDate(b.createdAt))}",
+            IconText("📅 ${tr.slot(b.day, b.hour)}   ·   ${tr.bookedOn(formatDate(b.createdAt))}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (learnMode && b.status == STATUS_BOOKED) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                    Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { Text(tr.checkIn) }
+                    Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { IconText(tr.checkIn) }
                     OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp)) { Text(tr.cancel) }
                 }
             }
@@ -277,7 +279,7 @@ private fun LessonCard(
                     modifier = Modifier.padding(top = 4.dp)) { Text(tr.cancelThisLesson) }
             }
             if (learnMode && b.status == STATUS_DONE && b.myRating == null) {
-                OutlinedButton(onClick = onRate, shape = RoundedCornerShape(14.dp)) { Text(tr.rateLesson) }
+                OutlinedButton(onClick = onRate, shape = RoundedCornerShape(14.dp)) { IconText(tr.rateLesson) }
             }
             if (b.myRating != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -303,7 +305,7 @@ private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, Strin
                 Row {
                     for (i in 1..5) {
                         TextButton(onClick = { stars = i }, contentPadding = PaddingValues(horizontal = 4.dp)) {
-                            Text(if (i <= stars) "★" else "☆", fontSize = 30.sp, color = Gold)
+                            AppIcon(if (i <= stars) "star_fill" else "star", size = 30.dp, tint = Gold)
                         }
                     }
                 }
@@ -322,7 +324,7 @@ private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, Strin
 @Composable
 private fun SmallAction(label: String, onClick: () -> Unit) {
     TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 8.dp)) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        IconText(label, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -356,7 +358,7 @@ private fun PlanDialog(vm: SkillSwapViewModel, b: BookingLine, onDismiss: () -> 
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr.planTitle(b.skillName)) },
+        title = { IconText(tr.planTitle(b.skillName)) },
         text = {
             when {
                 error != null -> Text(error ?: "", color = MaterialTheme.colorScheme.error)

@@ -133,7 +133,7 @@ fun LearnerCheckInDialog(
                 Text(tr.askTeacherQr,
                     style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = { scan() }, enabled = !busy, shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth().height(50.dp)) { Text(tr.scanQr) }
+                    modifier = Modifier.fillMaxWidth().height(50.dp)) { IconText(tr.scanQr) }
                 Text(tr.orTypeCode, style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.CenterHorizontally))

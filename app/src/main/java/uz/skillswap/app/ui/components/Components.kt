@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.components
 
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.material3.Icon
 import uz.skillswap.app.ui.i18n.LocalStrings
@@ -94,12 +95,6 @@ fun levelColor(level: String): Color = when (level) {
     "Advanced", "Gold" -> Color(0xFFF5B301)
     "Intermediate", "Silver" -> Color(0xFFA8B0C0)
     else -> Color(0xFFCD7F32)
-}
-
-fun levelMedal(level: String): String = when (level) {
-    "Advanced", "Gold" -> "🥇"
-    "Intermediate", "Silver" -> "🥈"
-    else -> "🥉"
 }
 
 // ---- motion helpers (all short: 120-300 ms) ----
@@ -244,8 +239,7 @@ fun SkillTile(skillName: String, category: String, size: Dp = 56.dp) {
  * coloured edge and the line icon in a light tint of the same colour (our own icons, not emoji).
  */
 @Composable
-fun IconTile(iconId: String, category: String, size: Dp = 56.dp) {
-    val color = categoryColor(category)
+fun IconTile(iconId: String, category: String, size: Dp = 56.dp, color: Color = categoryColor(category)) {
     val shape = RoundedCornerShape(size * 0.32f)
     Box(
         modifier = Modifier.size(size).clip(shape)
@@ -286,7 +280,7 @@ fun SmallPill(text: String, color: Color) {
         modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.16f))
             .padding(horizontal = 10.dp, vertical = 3.dp)
     ) {
-        Text(text, style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.SemiBold)
+        IconText(text, style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -320,9 +314,10 @@ fun Pill(
 }
 
 @Composable
-fun StarRow(rating: Int) {
-    Text("★".repeat(rating) + "☆".repeat((5 - rating).coerceAtLeast(0)), color = Gold,
-        style = MaterialTheme.typography.titleSmall)
+fun StarRow(rating: Int, size: Dp = 16.dp) {
+    Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        for (i in 1..5) AppIcon(if (i <= rating) "star_fill" else "star", size = size, tint = Gold)
+    }
 }
 
 @Composable
@@ -330,19 +325,29 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.titleMedium, modifier = modifier)
 }
 
-/** Friendly message when a list is empty. */
+/** Friendly message when a list is empty; [icon] is an id from our icon set ("search", "cap"...). */
 @Composable
-fun EmptyState(emoji: String, title: String, subtitle: String) {
+fun EmptyState(icon: String, title: String, subtitle: String) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(emoji, fontSize = 44.sp)
+        IconBubble(icon)
+        Spacer(Modifier.height(6.dp))
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Text(subtitle, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** A big icon on a soft gold circle, for empty and error states. */
+@Composable
+fun IconBubble(icon: String, size: Dp = 76.dp, tint: Color = MaterialTheme.colorScheme.primary) {
+    Box(
+        Modifier.size(size).clip(CircleShape).background(tint.copy(alpha = 0.13f)),
+        contentAlignment = Alignment.Center
+    ) { AppIcon(icon, size = size * 0.5f, tint = tint) }
 }
 
 /** "Are you sure?" dialog used before cancelling or finishing a lesson. */
@@ -413,7 +418,7 @@ fun NoticeCard(text: String) {
         Box(
             Modifier.size(32.dp).clip(CircleShape).background(Brush.linearGradient(listOf(BrandStart, BrandEnd))),
             contentAlignment = Alignment.Center
-        ) { Text("🔔", fontSize = 16.sp) }
-        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 12.dp))
+        ) { AppIcon("bell", size = 17.dp, tint = Color.White) }
+        IconText(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 12.dp))
     }
 }

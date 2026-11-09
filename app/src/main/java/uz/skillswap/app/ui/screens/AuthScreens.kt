@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.theme.GoldPrimary
+import uz.skillswap.app.ui.components.IconTile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import uz.skillswap.app.ui.i18n.LanguagePicker
 import uz.skillswap.app.ui.i18n.LocalStrings
@@ -133,7 +135,8 @@ private fun AuthLayout(title: String, subtitle: String, content: @Composable () 
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())) {
         GradientHeader {
             Spacer(Modifier.height(24.dp))
-            Text("🔄", fontSize = 44.sp)
+            IconTile("swap", "", size = 60.dp, color = GoldPrimary)
+            Spacer(Modifier.height(10.dp))
             Text("SkillSwap", style = MaterialTheme.typography.headlineLarge, color = Color.White)
             Text(LocalStrings.current.slogan, style = MaterialTheme.typography.bodyLarge,
                 color = Color.White.copy(alpha = 0.85f))

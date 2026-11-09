@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui
 
+import uz.skillswap.app.ui.components.IconBubble
 import uz.skillswap.app.ui.i18n.Strings
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
@@ -404,7 +405,7 @@ private fun NoConnectionScreen(message: String, retrying: Boolean, onRetry: () -
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("📡", fontSize = 56.sp)
+            IconBubble("signal_off", size = 92.dp)
             Text(LocalStrings.current.noConnection, style = MaterialTheme.typography.headlineSmall)
             Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)

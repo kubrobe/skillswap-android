@@ -1,5 +1,9 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.theme.GoldPrimary
+import uz.skillswap.app.ui.components.IconTile
+import uz.skillswap.app.ui.components.AppIcon
+import uz.skillswap.app.ui.components.IconText
 import androidx.compose.material3.Icon
 import uz.skillswap.app.ui.components.SkillIcons
 import uz.skillswap.app.ui.components.BadgeCircle
@@ -63,7 +67,6 @@ import uz.skillswap.app.ui.components.Pill
 import uz.skillswap.app.ui.components.Red
 import uz.skillswap.app.ui.components.SectionTitle
 import uz.skillswap.app.ui.components.levelColor
-import uz.skillswap.app.ui.components.levelMedal
 import uz.skillswap.app.util.memberLevel
 import uz.skillswap.app.util.nextLevelTarget
 import uz.skillswap.app.util.weightedRating
@@ -174,7 +177,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
             wallet?.let { w ->
                 AppCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SectionTitle(tr.timeBank)
+                        IconText(tr.timeBank, style = MaterialTheme.typography.titleMedium, iconColor = Gold)
                         Row(verticalAlignment = Alignment.Bottom) {
                             CountUpText(w.balance, MaterialTheme.typography.displaySmall, Gold)
                             Text(tr.creditsWord, style = MaterialTheme.typography.titleMedium,
@@ -184,7 +187,8 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         w.history.take(5).forEach { h ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(walletLabel(h, tr), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                IconText(walletLabel(h, tr), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f),
+                                    iconColor = MaterialTheme.colorScheme.primary)
                                 Text(if (h.amount > 0) "+${h.amount}" else "${h.amount}",
                                     style = MaterialTheme.typography.labelLarge, color = if (h.amount > 0) Green else Red)
                             }
@@ -198,7 +202,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     val badges = achievements?.badges.orEmpty()
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🏅", fontSize = 28.sp)
+                        IconTile("medal", "", size = 46.dp, color = GoldPrimary)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(tr.achievementsTitle, style = MaterialTheme.typography.titleMedium)
                             Text(tr.unlockedOf(badges.count { it.unlocked }, badges.size),
@@ -219,7 +223,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
             // what everybody achieved together
             AppCard(Modifier.fillMaxWidth(), onClick = onImpact) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("🌍", fontSize = 30.sp)
+                    IconTile("globe", "", size = 46.dp, color = GoldPrimary)
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(tr.communityImpact, style = MaterialTheme.typography.titleMedium)
                         Text(tr.communityImpactSub,
@@ -234,7 +238,10 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
             // English · Oʻzbekcha · Русский: the whole app switches at once
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionTitle("🌐 " + tr.language)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AppIcon("language", size = 22.dp, tint = MaterialTheme.colorScheme.primary)
+                        SectionTitle(tr.language, Modifier.padding(start = 8.dp))
+                    }
                     LanguagePicker(lang, { vm.setLanguage(it) })
                 }
             }
@@ -256,6 +263,8 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
         )
     }
 }
+
+private val TelegramBlue = Color(0xFF2AABEE)
 
 /** Link the SkillSwap Telegram bot: booking alerts and lesson reminders even when the app is closed. */
 @Composable
@@ -283,7 +292,7 @@ private fun TelegramCard(vm: SkillSwapViewModel) {
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("✈️", fontSize = 28.sp)
+                IconTile("plane", "", size = 46.dp, color = TelegramBlue)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(tr.telegramTitle, style = MaterialTheme.typography.titleMedium)
                     Text(tr.telegramSub, style = MaterialTheme.typography.bodySmall,
@@ -293,7 +302,7 @@ private fun TelegramCard(vm: SkillSwapViewModel) {
             val s = status
             when {
                 s?.linked == true -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr.telegramConnected, style = MaterialTheme.typography.bodyMedium, color = Green,
+                    IconText(tr.telegramConnected, style = MaterialTheme.typography.bodyMedium, color = Green,
                         modifier = Modifier.weight(1f))
                     TextButton(onClick = { vm.disconnectTelegram() }) { Text(tr.telegramDisconnect) }
                 }

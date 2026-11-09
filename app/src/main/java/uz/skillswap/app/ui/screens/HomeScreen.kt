@@ -1,5 +1,8 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.theme.Lavender
+import uz.skillswap.app.ui.components.AppIcon
+import uz.skillswap.app.ui.components.IconText
 import uz.skillswap.app.ui.components.SkillIcon
 import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.i18n.LocalStrings
@@ -130,7 +133,7 @@ fun HomeScreen(
                 alpha = 1f - (off / 700f).coerceIn(0f, 0.9f)
             }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr.hi(user?.fullName?.substringBefore(' ') ?: tr.guest),
+                    IconText(tr.hi(user?.fullName?.substringBefore(' ') ?: tr.guest),
                         style = MaterialTheme.typography.headlineSmall, color = Color.White,
                         modifier = Modifier.weight(1f))
                     GalaxyButton(tr.galaxyTitle, onGalaxy)
@@ -152,7 +155,7 @@ fun HomeScreen(
                                 Icon(Icons.Filled.Close, contentDescription = tr.clearSearch)
                             }
                         } else {
-                            IconButton(onClick = onAsk) { Text("🎙️", fontSize = 20.sp) }
+                            IconButton(onClick = onAsk) { AppIcon("mic", size = 22.dp, tint = Color.White) }
                         }
                     },
                     singleLine = true,
@@ -208,7 +211,7 @@ fun HomeScreen(
         }
         if (offers.isEmpty()) {
             item {
-                EmptyState("🔍", tr.nothingFound, tr.nothingFoundHint)
+                EmptyState("search", tr.nothingFound, tr.nothingFoundHint)
             }
         }
         itemsIndexed(offers, key = { _, o -> o.offerId }) { index, o ->
@@ -269,7 +272,7 @@ private fun GalaxyButton(label: String, onClick: () -> Unit) {
             .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
             .clickable(interactionSource = source, indication = null, onClickLabel = label, onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Text("🌌", fontSize = 18.sp) }
+    ) { AppIcon("orbit", size = 21.dp, tint = Color.White) }
 }
 
 /** Credits balance in the header. */
@@ -289,7 +292,7 @@ private fun CreditsChip(balance: Int) {
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("🪙", fontSize = 16.sp)
+        AppIcon("coin", size = 17.dp, tint = Lavender)
         Text(" $shown", style = MaterialTheme.typography.titleSmall, color = Color.White)
     }
 }
@@ -302,7 +305,8 @@ private fun MatchesSection(
     val tr = LocalStrings.current
     Column(Modifier.padding(bottom = 6.dp)) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(tr.perfectMatches, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            IconText(tr.perfectMatches, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
+                iconColor = MaterialTheme.colorScheme.primary)
             TextButton(onClick = onEditWants) { Text(if (hasWants) tr.editWishes else tr.addWishes) }
         }
         when {
@@ -345,7 +349,7 @@ private fun MatchCard(m: Match, onClick: () -> Unit) {
                     color = textColor.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Text(
+        IconText(
             if (twoWay) tr.perfectSwap(m.theyWant ?: "") else tr.teachesYourWish,
             style = MaterialTheme.typography.labelMedium, color = textColor, maxLines = 2
         )
@@ -430,8 +434,8 @@ private fun LiveTicker(lines: List<ActivityLine>, onClick: () -> Unit) {
             label = "ticker"
         ) { l ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(l.text, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f))
+                IconText(l.text, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f), iconColor = MaterialTheme.colorScheme.primary)
                 Text(tr.ago(System.currentTimeMillis(), l.at), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
             }
@@ -455,7 +459,7 @@ private fun SwipeBanner(onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("🃏", fontSize = 30.sp)
+        AppIcon("cards", size = 30.dp, tint = OnGold)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(tr.swipeTitle, style = MaterialTheme.typography.titleMedium, color = OnGold, fontWeight = FontWeight.Bold)
             Text(tr.swipeHint, style = MaterialTheme.typography.bodySmall,

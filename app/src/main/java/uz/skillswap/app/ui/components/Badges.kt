@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.components
 
+import uz.skillswap.app.ui.theme.OnGold
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
@@ -52,17 +53,17 @@ import uz.skillswap.app.ui.theme.GoldDeep
 import uz.skillswap.app.ui.theme.GoldPrimary
 import uz.skillswap.app.ui.theme.Lavender
 
-/** The picture of each badge (the names are in Strings, per language). */
-fun badgeEmoji(id: String): String = when (id) {
-    "first_lesson" -> "🎓"
-    "first_teach" -> "🧑‍🏫"
-    "mentor" -> "🏆"
-    "five_star" -> "⭐"
-    "trusted" -> "🛡️"
-    "explorer" -> "🧭"
-    "perfect_swap" -> "🔁"
-    "critic" -> "✍️"
-    else -> "🏅"
+/** The picture of each badge, from our icon set (the names are in Strings, per language). */
+fun badgeIcon(id: String): String = when (id) {
+    "first_lesson" -> "cap"
+    "first_teach" -> "easel"
+    "mentor" -> "trophy"
+    "five_star" -> "star_fill"
+    "trusted" -> "shield"
+    "explorer" -> "compass"
+    "perfect_swap" -> "swap"
+    "critic" -> "quill"
+    else -> "medal"
 }
 
 /**
@@ -80,7 +81,7 @@ fun BadgeCircle(id: String, progress: Int, goal: Int, size: Dp = 64.dp) {
                     .padding(3.dp).clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
-            ) { Text(badgeEmoji(id), fontSize = (size.value * 0.42f).sp) }
+            ) { AppIcon(badgeIcon(id), size = size * 0.46f, tint = GoldPrimary) }
         } else {
             val track = MaterialTheme.colorScheme.outlineVariant
             Canvas(Modifier.size(size)) {
@@ -92,7 +93,7 @@ fun BadgeCircle(id: String, progress: Int, goal: Int, size: Dp = 64.dp) {
                         style = Stroke(w, cap = StrokeCap.Round))
                 }
             }
-            Text(badgeEmoji(id), fontSize = (size.value * 0.38f).sp, modifier = Modifier.graphicsLayer { alpha = 0.35f })
+            AppIcon(badgeIcon(id), size = size * 0.42f, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
         }
     }
 }
@@ -159,7 +160,7 @@ fun BadgeUnlockedOverlay(events: Flow<String>, onShown: () -> Unit) {
                     .background(Brush.linearGradient(listOf(Lavender, GoldPrimary, GoldDeep)))
                     .border(4.dp, Color.White.copy(alpha = 0.7f), CircleShape),
                 contentAlignment = Alignment.Center
-            ) { Text(badgeEmoji(id), fontSize = 68.sp) }
+            ) { AppIcon(badgeIcon(id), size = 74.dp, tint = OnGold) }
             Text(tr.badgeUnlocked.uppercase(), color = GoldPrimary, style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             Text(tr.badgeTitle(id), color = Color.White, style = MaterialTheme.typography.headlineSmall)

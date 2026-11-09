@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.AppIcon
+import uz.skillswap.app.ui.components.IconText
 import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.animateFloatAsState
@@ -58,7 +60,6 @@ import uz.skillswap.app.ui.components.GradientHeader
 import uz.skillswap.app.ui.components.Green
 import uz.skillswap.app.ui.components.SectionTitle
 import uz.skillswap.app.ui.components.StarRow
-import uz.skillswap.app.ui.components.levelMedal
 import uz.skillswap.app.util.formatDate
 
 @Composable
@@ -141,7 +142,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                                         } else scope.launch { snackbar.showSnackbar(err) }
                                     }
                                 }
-                            ) { Text(if (s.isBooked) tr.taken else tr.bookBtn) }
+                            ) { IconText(if (s.isBooked) tr.taken else tr.bookBtn) }
                         }
                     }
                 }
@@ -187,7 +188,7 @@ private fun BookedDialog(text: String, onDone: () -> Unit) {
                 Modifier.size(64.dp).graphicsLayer { scaleX = scale; scaleY = scale }
                     .clip(CircleShape).background(Green),
                 contentAlignment = Alignment.Center
-            ) { Text("✓", color = Color.White, fontSize = 34.sp) }
+            ) { AppIcon("check", size = 36.dp, tint = Color.White) }
         },
         title = { Text(LocalStrings.current.lessonBooked, textAlign = TextAlign.Center) },
         text = { Text(text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },

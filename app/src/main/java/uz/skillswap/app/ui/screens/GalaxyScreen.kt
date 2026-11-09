@@ -1,11 +1,5 @@
 package uz.skillswap.app.ui.screens
 
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import uz.skillswap.app.ui.components.IconTile
-import uz.skillswap.app.ui.components.SkillIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
@@ -18,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +22,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -51,10 +50,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -65,32 +73,48 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import uz.skillswap.app.data.remote.Galaxy
 import uz.skillswap.app.data.remote.GalaxyNode
 import uz.skillswap.app.ui.SkillSwapViewModel
+import uz.skillswap.app.ui.components.IconTile
+import uz.skillswap.app.ui.components.SkillIcons
 import uz.skillswap.app.ui.components.categoryColor
 import uz.skillswap.app.ui.i18n.LocalStrings
 import uz.skillswap.app.ui.i18n.Strings
 import uz.skillswap.app.ui.theme.GoldPrimary
 import uz.skillswap.app.ui.theme.Lavender
 import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.ln
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
+import androidx.compose.ui.graphics.Canvas as BitmapCanvas
 
 private val SpaceDeep = Color(0xFF0A0B10)
 private val SpaceGlow = Color(0xFF221D12)
 
+// Layout sizes, in dp at zoom 1.
+private const val SLOT = 76f            // room for one star and its name along an orbit
+private const val FIRST_ORBIT = 110f    // radius of the inner orbit
+private const val ORBIT_GAP = 84f       // distance between two orbits
+private const val TWO_PI = (2.0 * PI).toFloat()
+
 /**
- * Skill Galaxy: every person is a star, every lesson a line from teacher to learner, and gold sparks
- * flow along the lines (knowledge moving). A new lesson anywhere fires a comet along its line, live.
- * Pinch to zoom, drag to move, tap a star for details, double-tap to reset.
+ * Skill Galaxy, drawn as a solar system: you are the sun in the middle, the people you swapped
+ * lessons with circle you on the inner orbit, everyone else on the outer orbits (near the people they
+ * swap with). Lines are lessons, gold sparks flow from teacher to learner, the orbits turn slowly.
+ * A new lesson anywhere fires a comet along its line, live. Pinch to zoom, tap a star for details.
  */
 @Composable
 fun GalaxyScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
@@ -107,24 +131,51 @@ fun GalaxyScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
             g != null && g.nodes.isNotEmpty() -> GalaxyView(g, tr)
             g == null && error != null -> Column(Modifier.align(Alignment.Center).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("📡", fontSize = 44.sp)
+                Icon(SkillIcons.named("signal_off"), contentDescription = null, tint = Lavender, modifier = Modifier.size(52.dp))
+                Spacer(Modifier.size(12.dp))
                 Text(error ?: "", color = Color.White, textAlign = TextAlign.Center)
                 TextButton(onClick = { vm.loadGalaxy() }) { Text(tr.tryAgain, color = GoldPrimary) }
             }
-            g != null -> Text("🌌  " + tr.galaxyEmpty, color = Color.White, modifier = Modifier.align(Alignment.Center))
+            g != null -> Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(SkillIcons.named("orbit"), contentDescription = null, tint = Lavender, modifier = Modifier.size(52.dp))
+                Spacer(Modifier.size(12.dp))
+                Text(tr.galaxyEmpty, color = Color.White)
+            }
             else -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = GoldPrimary)
         }
-        Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(start = 4.dp, end = 16.dp, top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr.back, tint = Color.White)
+        Column(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 4.dp)) {
+            Row(Modifier.padding(start = 4.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr.back, tint = Color.White)
+                }
+                Column {
+                    Text(tr.galaxyTitle, style = MaterialTheme.typography.titleLarge, color = Color.White)
+                    Text(tr.galaxyStats(g?.nodes?.size ?: 0, g?.edges?.sumOf { it.lessons } ?: 0),
+                        style = MaterialTheme.typography.labelMedium, color = Lavender)
+                }
             }
-            Column {
-                Text(tr.galaxyTitle, style = MaterialTheme.typography.titleLarge, color = Color.White)
-                Text(tr.galaxyStats(g?.nodes?.size ?: 0, g?.edges?.sumOf { it.lessons } ?: 0),
-                    style = MaterialTheme.typography.labelMedium, color = Lavender)
+            if (g != null && g.nodes.isNotEmpty()) Legend(g, tr)
+        }
+    }
+}
+
+/** The colours of the categories in this galaxy, most common first. */
+@Composable
+private fun Legend(g: Galaxy, tr: Strings) {
+    val categories = remember(g) {
+        g.nodes.map { it.category }.filter { it.isNotBlank() }
+            .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+    }
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (c in categories) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(categoryColor(c)))
+                Text(tr.categoryName(c), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.padding(start = 5.dp))
             }
         }
     }
@@ -140,7 +191,7 @@ private fun StarField() {
         val rs = FloatArray(150) { (0.4f + rnd.nextFloat() * 1.1f) * density }
         val alphas = FloatArray(150) { 0.12f + rnd.nextFloat() * 0.45f }
         onDrawBehind {
-            for (i in 0 until 150) drawCircle(Color.White.copy(alpha = alphas[i]), rs[i], Offset(xs[i], ys[i]))
+            for (i in 0 until 150) drawCircle(Color.White, rs[i], Offset(xs[i], ys[i]), alpha = alphas[i])
         }
     })
 }
@@ -148,38 +199,85 @@ private fun StarField() {
 /** A lesson that just happened: a comet flies along its line, then the learner's star pulses. */
 private class Comet(val edge: Int, val start: Long)
 
-/** The last screen transform, so a tap can find the star under the finger. */
-private class ViewXform {
-    var s = 1f
-    var cx = 0f
-    var cy = 0f
-    var ox = 0f
-    var oy = 0f
+/** How far the orbits have turned (seconds of turning; stops while a star is selected). */
+private class Spin {
+    var seconds = 0f
+}
+
+/** Angle an orbit has turned after [seconds]: inner orbits a little faster, neighbours opposite ways. */
+private fun turned(orbit: Int, seconds: Float): Float =
+    if (orbit <= 0) 0f else (if (orbit % 2 == 1) 1f else -1f) * seconds * TWO_PI / (150f + 60f * orbit)
+
+/** Shortest turn from one angle to another, in -PI..PI. */
+private fun wrap(a: Float): Float {
+    var v = a % TWO_PI
+    if (v > PI) v -= TWO_PI
+    if (v < -PI) v += TWO_PI
+    return v
+}
+
+/** Grows past 1 a little and settles back: a soft "pop". */
+private fun backOut(x: Float): Float {
+    if (x <= 0f) return 0f
+    if (x >= 1f) return 1f
+    val c1 = 1.70158f
+    val y = x - 1f
+    return 1f + (c1 + 1f) * y * y * y + c1 * y * y
+}
+
+/** A point on the curved lesson line: quadratic Bézier from p0 over c to p1. */
+private fun bez(t: Float, p0: Float, c: Float, p1: Float): Float {
+    val u = 1f - t
+    return u * u * p0 + 2f * u * t * c + t * t * p1
 }
 
 /**
- * Star positions from a small force simulation (Fruchterman–Reingold): stars push each other away,
- * lesson lines pull teacher and learner together, a weak gravity keeps loners near the middle.
- * A new download keeps the old positions, so the picture never jumps.
+ * Where every star sits. Computed once per download, no physics, so it costs nothing per frame and
+ * stars can never overlap: each orbit only takes as many stars as fit around it ([SLOT] apart).
+ *  - the centre is me;
+ *  - then the people I swapped with (most lessons first), then everyone else (most active first),
+ *    filling the orbits from the inside out;
+ *  - on the inner orbit each next star is the one with the most lessons with the previous one, so
+ *    people who swap with each other sit side by side (short lines, few crossings);
+ *  - on outer orbits a star sits in the direction of the people it swaps with.
+ * When new data arrives, stars glide from their old place to the new one.
  */
-private class Layout(g: Galaxy, previous: Layout?, measurer: TextMeasurer, tr: Strings) {
+private class Orbits(g: Galaxy, previous: Orbits?, measurer: TextMeasurer, tr: Strings) {
     val nodes: List<GalaxyNode> = g.nodes
     val n = nodes.size
     val index = HashMap<Long, Int>()
-    val x = FloatArray(n)
-    val y = FloatArray(n)
-    val radius = FloatArray(n)
-    private val fx = FloatArray(n)
-    private val fy = FloatArray(n)
     val edgeA: IntArray
     val edgeB: IntArray
     val edgeW: IntArray
     val edgeKey: Array<String>
     val phase: FloatArray
-    val paths: List<Path>
-    val labels: List<TextLayoutResult>
+    val orbit = IntArray(n)                 // 0 = centre, 1 = inner orbit, ...
+    val dist = FloatArray(n)                // radius of the star's orbit, dp
+    val angle = FloatArray(n)               // place on the orbit before turning, radians
+    val size = FloatArray(n)                // star radius, dp
+    val orbits: FloatArray                  // radius of every orbit (faint circles)
+    val maxOrbit: Float
+    val centre: Int
+    val colors: Array<Color>
     val iconIds: List<String>
-    var temperature: Float
+    val labels: List<TextLayoutResult>
+    val fresh = previous == null            // first picture: stars fly out from the middle
+    val fromOrbit = IntArray(n) { -1 }      // where each star was before this download (-1 = new)
+    val fromDist = FloatArray(n)
+    val fromAngle = FloatArray(n)
+    var start = 0L                          // first frame with this layout
+    // filled every frame: where each star is on screen (taps use these)
+    val sx = FloatArray(n)
+    val sy = FloatArray(n)
+    val sr = FloatArray(n)
+    val grow = FloatArray(n)
+    // neighbours of the selected star
+    val lit = BooleanArray(n)
+    private var litFor = -2
+    val path = Path()
+    private var strokeDensity = 0f
+    private var strokes: Array<Stroke> = emptyArray()
+    private var hotStrokes: Array<Stroke> = emptyArray()
 
     init {
         nodes.forEachIndexed { i, node -> index[node.id] = i }
@@ -193,99 +291,168 @@ private class Layout(g: Galaxy, previous: Layout?, measurer: TextMeasurer, tr: S
         edgeW = IntArray(es.size) { es[it].third.lessons }
         edgeKey = Array(es.size) { "${es[it].third.from}>${es[it].third.to}" }
         phase = FloatArray(es.size) { (it * 0.618f) % 1f }
-        paths = List(es.size) { Path() }
-        for (i in 0 until n) {
-            val old = previous?.index?.get(nodes[i].id)
-            if (previous != null && old != null) {
-                x[i] = previous.x[old]
-                y[i] = previous.y[old]
-            } else {                                   // sunflower spiral: an even, repeatable start
-                val r = 28f * sqrt(i + 1f)
-                val a = i * 2.39996f
-                x[i] = r * cos(a)
-                y[i] = r * sin(a)
-            }
-            radius[i] = 7f + 3.2f * sqrt((nodes[i].taught + nodes[i].learned).toFloat())
-        }
-        labels = nodes.map { node ->
-            val me = node.id == g.me
-            measurer.measure(if (me) tr.you else node.name,
-                TextStyle(color = if (me) GoldPrimary else Color.White.copy(alpha = 0.85f), fontSize = 11.sp,
-                    fontWeight = if (me) FontWeight.Bold else FontWeight.Medium))
-        }
-        iconIds = nodes.map { node -> SkillIcons.idForEmoji(node.emoji) }
-        temperature = if (previous == null) 60f else 10f
-    }
 
-    fun step() {
-        if (temperature < 0.5f) return
-        val k = 64f
-        java.util.Arrays.fill(fx, 0f)
-        java.util.Arrays.fill(fy, 0f)
-        for (i in 0 until n) {
-            for (j in i + 1 until n) {
-                var dx = x[i] - x[j]
-                var dy = y[i] - y[j]
-                var d2 = dx * dx + dy * dy
-                if (d2 < 0.01f) {
-                    dx = 0.3f * (i - j)
-                    dy = 0.3f
-                    d2 = dx * dx + dy * dy
-                }
-                val f = k * k / d2                     // push apart: k² / distance
-                fx[i] += dx * f; fy[i] += dy * f
-                fx[j] -= dx * f; fy[j] -= dy * f
-            }
-        }
-        for (e in edgeA.indices) {                     // pull together: distance² / k, stronger for more lessons
+        // lessons between two people, both directions together
+        val link = Array(n) { HashMap<Int, Int>() }
+        for (e in es.indices) {
             val a = edgeA[e]
             val b = edgeB[e]
-            val dx = x[a] - x[b]
-            val dy = y[a] - y[b]
-            val f = sqrt(dx * dx + dy * dy) / k * (1f + 0.5f * ln(1f + edgeW[e]))
-            fx[a] -= dx * f; fy[a] -= dy * f
-            fx[b] += dx * f; fy[b] += dy * f
+            link[a][b] = (link[a][b] ?: 0) + edgeW[e]
+            link[b][a] = (link[b][a] ?: 0) + edgeW[e]
         }
+        val activity = IntArray(n) { nodes[it].taught + nodes[it].learned }
+        centre = index[g.me] ?: (0 until n).maxByOrNull { activity[it] } ?: 0
         for (i in 0 until n) {
-            fx[i] -= x[i] * 0.35f
-            fy[i] -= y[i] * 0.35f
-            val len = sqrt(fx[i] * fx[i] + fy[i] * fy[i])
-            if (len > 0f) {
-                val m = min(len, temperature) / len    // move at most "temperature" units per step
-                x[i] += fx[i] * m
-                y[i] += fy[i] * m
+            size[i] = if (i == centre) 28f else min(24f, 12f + 2.4f * sqrt(activity[i].toFloat()))
+        }
+
+        val others = (0 until n).filter { it != centre }
+        val direct = others.filter { (link[centre][it] ?: 0) > 0 }
+            .sortedWith(compareByDescending<Int> { link[centre][it] ?: 0 }.thenBy { it })
+        val rest = others.filter { (link[centre][it] ?: 0) == 0 }
+            .sortedWith(compareByDescending<Int> { activity[it] }.thenBy { it })
+        val queue = direct + rest
+        val placed = BooleanArray(n)
+        if (n > 0) placed[centre] = true
+        val radii = ArrayList<Float>()
+        var r = FIRST_ORBIT
+        var pos = 0
+        var k = 0
+        while (pos < queue.size) {
+            val fits = max(6, floor(TWO_PI * r / SLOT).toInt())
+            val members = queue.subList(pos, min(queue.size, pos + fits))
+            pos += members.size
+            k += 1
+            val wish = HashMap<Int, Float>()        // the direction a star would like to sit in
+            val order: List<Int>
+            if (k == 1) {
+                val left = members.toMutableList()
+                val chain = ArrayList<Int>()
+                chain.add(left.removeAt(0))
+                while (left.isNotEmpty()) {
+                    val last = chain[chain.size - 1]
+                    var best = 0
+                    for (q in 1 until left.size) {
+                        if ((link[last][left[q]] ?: 0) > (link[last][left[best]] ?: 0)) best = q
+                    }
+                    chain.add(left.removeAt(best))
+                }
+                order = chain
+            } else {
+                for (m in members) {
+                    var x = 0f
+                    var y = 0f
+                    for ((j, lessons) in link[m]) {
+                        if (placed[j] && j != centre) {
+                            x += lessons * cos(angle[j])
+                            y += lessons * sin(angle[j])
+                        }
+                    }
+                    if (x != 0f || y != 0f) wish[m] = atan2(y, x)
+                }
+                order = members.sortedWith(compareBy<Int> { if (wish[it] == null) 1 else 0 }.thenBy { wish[it] ?: 0f })
+            }
+            val step = TWO_PI / order.size
+            // turn the whole orbit so the stars land as close as possible to where they wish to be
+            var offset = (-PI / 2).toFloat()
+            var ox = 0f
+            var oy = 0f
+            order.forEachIndexed { q, m ->
+                val w = wish[m]
+                if (w != null) {
+                    ox += cos(w - q * step)
+                    oy += sin(w - q * step)
+                }
+            }
+            if (ox != 0f || oy != 0f) offset = atan2(oy, ox)
+            order.forEachIndexed { q, m ->
+                orbit[m] = k
+                dist[m] = r
+                angle[m] = offset + q * step
+                placed[m] = true
+            }
+            radii.add(r)
+            r += ORBIT_GAP
+        }
+        orbits = radii.toFloatArray()
+        maxOrbit = if (radii.isEmpty()) 0f else radii[radii.size - 1]
+
+        iconIds = nodes.map { SkillIcons.idForEmoji(it.emoji) }
+        colors = Array(n) { categoryColor(nodes[it].category.ifBlank { SkillIcons.categoryOf(iconIds[it]) }) }
+        labels = nodes.mapIndexed { i, node ->
+            val me = i == centre
+            measurer.measure(if (me) tr.you else node.name,
+                TextStyle(color = if (me) GoldPrimary else Color.White.copy(alpha = 0.88f), fontSize = 11.sp,
+                    fontWeight = if (me) FontWeight.Bold else FontWeight.Medium))
+        }
+        if (previous != null) {
+            for (i in 0 until n) {
+                val old = previous.index[nodes[i].id] ?: continue
+                fromOrbit[i] = previous.orbit[old]
+                fromDist[i] = previous.dist[old]
+                fromAngle[i] = previous.angle[old]
             }
         }
-        temperature *= 0.975f                          // cool down: the picture settles in about 2 seconds
+    }
+
+    /** Marks the stars linked to [sel] (recomputed only when the selection changes). */
+    fun light(sel: Int) {
+        if (sel == litFor) return
+        litFor = sel
+        java.util.Arrays.fill(lit, false)
+        if (sel < 0) return
+        for (e in edgeA.indices) {
+            if (edgeA[e] == sel) lit[edgeB[e]] = true
+            if (edgeB[e] == sel) lit[edgeA[e]] = true
+        }
+    }
+
+    /** Line strokes, made once per screen density instead of every frame. */
+    fun stroke(e: Int, hot: Boolean, density: Float): Stroke {
+        if (strokeDensity != density) {
+            strokeDensity = density
+            strokes = Array(edgeW.size) { Stroke((1f + 0.5f * ln(1f + edgeW[it])) * density) }
+            hotStrokes = Array(edgeW.size) { Stroke((1f + 0.5f * ln(1f + edgeW[it])) * density * 1.7f) }
+        }
+        return if (hot) hotStrokes[e] else strokes[e]
     }
 }
 
-/** A point on the curved lesson line: quadratic Bézier from p0 over c to p1. */
-private fun bez(t: Float, p0: Float, c: Float, p1: Float): Float {
-    val u = 1f - t
-    return u * u * p0 + 2f * u * t * c + t * t * p1
+/**
+ * Our skill icon as a small white picture, drawn once and reused: stretching a ready picture is far
+ * cheaper than drawing the vector again for every star, every frame (that was the old lag).
+ */
+private fun iconBitmap(cache: HashMap<String, ImageBitmap>, id: String, painter: Painter?, density: Float): ImageBitmap? {
+    cache[id]?.let { return it }
+    if (painter == null) return null
+    val px = 96
+    val bitmap = ImageBitmap(px, px)
+    CanvasDrawScope().draw(Density(density), LayoutDirection.Ltr, BitmapCanvas(bitmap), Size(px.toFloat(), px.toFloat())) {
+        with(painter) { draw(size, colorFilter = ColorFilter.tint(Color.White)) }
+    }
+    cache[id] = bitmap
+    return bitmap
 }
 
 @Composable
 private fun GalaxyView(g: Galaxy, tr: Strings) {
     val haptic = LocalHapticFeedback.current
     val measurer = rememberTextMeasurer()
-    var layout by remember { mutableStateOf<Layout?>(null) }
+    var layout by remember { mutableStateOf<Orbits?>(null) }
     val comets = remember { mutableStateListOf<Comet>() }
     var clock by remember { mutableLongStateOf(0L) }
+    val spin = remember { Spin() }
     var zoom by remember { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
     var selected by remember { mutableStateOf<Long?>(null) }
     var cardNode by remember { mutableStateOf<GalaxyNode?>(null) }
-    val view = remember { ViewXform() }
-    // our skill icons, drawn white inside the stars
-    val painters = SkillIcons.ids.associateWith { id -> rememberVectorPainter(SkillIcons.named(id)) }
-    val white = remember { ColorFilter.tint(Color.White) }
+    val painters = SkillIcons.skillIds.associateWith { id -> rememberVectorPainter(SkillIcons.named(id)) }
+    val icons = remember { HashMap<String, ImageBitmap>() }
 
-    // New data: keep the stars where they are and fire a comet along every new or busier lesson line
+    // New data: stars glide to their new places; a comet flies along every new or busier lesson line
     LaunchedEffect(g, tr) {
         val old = layout
-        val next = Layout(g, old, measurer, tr)
+        val next = Orbits(g, old, measurer, tr)
         comets.clear()
         if (old != null) {
             val before = HashMap<String, Int>()
@@ -298,12 +465,14 @@ private fun GalaxyView(g: Galaxy, tr: Strings) {
         layout = next
     }
 
-    // One clock for the whole picture: the simulation steps and the sparks move once per frame
+    // One clock for the whole picture. Only the Canvas reads it, so a frame = one redraw, no recomposition.
     LaunchedEffect(Unit) {
+        var last = 0L
         while (true) {
             withFrameMillis { t ->
+                if (last != 0L && selected == null) spin.seconds += (t - last) / 1000f
+                last = t
                 clock = t
-                layout?.let { it.step(); it.step() }
                 if (comets.isNotEmpty()) comets.removeAll { t - it.start > 2600L }
                 Unit
             }
@@ -313,25 +482,31 @@ private fun GalaxyView(g: Galaxy, tr: Strings) {
     Box(Modifier.fillMaxSize()) {
         Canvas(
             Modifier.fillMaxSize()
+                .graphicsLayer { }                   // its own layer: redrawing it every frame leaves the rest alone
                 .pointerInput(Unit) {
-                    detectTransformGestures { _, drag, pinch, _ ->
-                        zoom = (zoom * pinch).coerceIn(0.5f, 5f)
-                        pan += drag
+                    detectTransformGestures { centroid, drag, pinch, _ ->
+                        // zoom around the fingers, not around the middle of the screen
+                        val before = zoom
+                        val after = (before * pinch).coerceIn(0.6f, 4f)
+                        val middle = Offset(size.width / 2f, size.height / 2f) + pan
+                        pan = pan + (centroid - middle) * (1f - after / before) + drag
+                        zoom = after
                     }
                 }
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onDoubleTap = { zoom = 1f; pan = Offset.Zero },
+                        onDoubleTap = {
+                            zoom = 1f
+                            pan = Offset.Zero
+                        },
                         onTap = { p ->
                             val lay = layout
                             var best = -1
                             var bestD = Float.MAX_VALUE
                             if (lay != null) {
                                 for (i in 0 until lay.n) {
-                                    val sxv = view.ox + (lay.x[i] - view.cx) * view.s
-                                    val syv = view.oy + (lay.y[i] - view.cy) * view.s
-                                    val d = hypot(p.x - sxv, p.y - syv)
-                                    if (d < lay.radius[i] * view.s + 14.dp.toPx() && d < bestD) {
+                                    val d = hypot(p.x - lay.sx[i], p.y - lay.sy[i])
+                                    if (d < lay.sr[i] + 14.dp.toPx() && d < bestD) {
                                         best = i
                                         bestD = d
                                     }
@@ -347,76 +522,124 @@ private fun GalaxyView(g: Galaxy, tr: Strings) {
                     )
                 }
         ) {
-            val t = clock                                       // redraw every frame
+            val t = clock
             val lay = layout ?: return@Canvas
             if (lay.n == 0) return@Canvas
+            if (lay.start == 0L) lay.start = t
+            val age = (t - lay.start).toFloat()
+            val dp = density
 
-            // fit the whole galaxy on screen, then apply the user's pinch and drag
-            var minX = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE
-            var minY = Float.MAX_VALUE; var maxY = -Float.MAX_VALUE
+            // fit all orbits on screen, then apply the user's pinch and drag
+            val avail = min(size.width / dp / 2f, size.height / dp * 0.36f) - 14f
+            val fit = if (lay.maxOrbit <= 0f) 1.2f else (avail / (lay.maxOrbit + 30f)).coerceIn(0.5f, 1.25f)
+            val u = fit * zoom * dp                          // pixels per layout dp
+            val ox = size.width / 2f + pan.x
+            val oy = size.height / 2f + pan.y
+            val sel = selected?.let { lay.index[it] } ?: -1
+            lay.light(sel)
+            val turn = spin.seconds
+
+            // where every star is in this frame
             for (i in 0 until lay.n) {
-                minX = min(minX, lay.x[i] - lay.radius[i]); maxX = maxOf(maxX, lay.x[i] + lay.radius[i])
-                minY = min(minY, lay.y[i] - lay.radius[i]); maxY = maxOf(maxY, lay.y[i] + lay.radius[i])
+                var d = lay.dist[i]
+                var a = lay.angle[i] + turned(lay.orbit[i], turn)
+                var grow = 1f
+                if (lay.fresh) {
+                    grow = backOut((age - 90f * lay.orbit[i]) / 700f)    // inner orbit first
+                    d *= grow
+                } else if (age < 700f) {
+                    val m = FastOutSlowInEasing.transform(age / 700f)
+                    if (lay.fromOrbit[i] >= 0) {
+                        val a0 = lay.fromAngle[i] + turned(lay.fromOrbit[i], turn)
+                        a = a0 + wrap(a - a0) * m
+                        d = lay.fromDist[i] + (d - lay.fromDist[i]) * m
+                    } else {
+                        grow = backOut(age / 700f)
+                    }
+                }
+                lay.sx[i] = ox + cos(a) * d * u
+                lay.sy[i] = oy + sin(a) * d * u
+                lay.grow[i] = grow
+                lay.sr[i] = lay.size[i] * u * max(grow, 0f)
             }
-            val fit = min(size.width / (maxX - minX + 60f), size.height * 0.68f / (maxY - minY + 60f))
-                .coerceAtMost(4f * density)
-            view.s = fit * zoom
-            view.cx = (minX + maxX) / 2f
-            view.cy = (minY + maxY) / 2f
-            view.ox = size.width / 2f + pan.x
-            view.oy = size.height * 0.52f + pan.y
-            val s = view.s
 
-            // lesson lines + sparks flowing from teacher to learner
+            // faint orbit circles
+            val orbitAlpha = 0.07f * (if (lay.fresh) (age / 900f).coerceIn(0f, 1f) else 1f)
+            val thin = Stroke(1f * dp)
+            for (r in lay.orbits) drawCircle(Color.White, r * u, Offset(ox, oy), alpha = orbitAlpha, style = thin)
+
+            // lesson lines, bent toward the middle, with sparks flowing from teacher to learner
+            val path = lay.path
             for (e in lay.edgeA.indices) {
                 val a = lay.edgeA[e]
                 val b = lay.edgeB[e]
-                val x0 = view.ox + (lay.x[a] - view.cx) * s
-                val y0 = view.oy + (lay.y[a] - view.cy) * s
-                val x1 = view.ox + (lay.x[b] - view.cx) * s
-                val y1 = view.oy + (lay.y[b] - view.cy) * s
-                val qx = (x0 + x1) / 2f - (y1 - y0) * 0.18f      // bend the line a little to one side
-                val qy = (y0 + y1) / 2f + (x1 - x0) * 0.18f
-                val w = lay.edgeW[e]
-                val hot = selected != null && (lay.nodes[a].id == selected || lay.nodes[b].id == selected)
-                val path = lay.paths[e]
+                val show = min(lay.grow[a], lay.grow[b]).coerceIn(0f, 1f)
+                if (show <= 0f) continue
+                val hot = sel >= 0 && (a == sel || b == sel)
+                val mine = a == lay.centre || b == lay.centre
+                val alpha = show * when {
+                    hot -> 0.9f
+                    sel >= 0 -> 0.05f
+                    mine -> 0.34f
+                    else -> 0.10f
+                }
+                val x0 = lay.sx[a]
+                val y0 = lay.sy[a]
+                val x1 = lay.sx[b]
+                val y1 = lay.sy[b]
+                val qx = ox + ((x0 + x1) / 2f - ox) * 0.55f
+                val qy = oy + ((y0 + y1) / 2f - oy) * 0.55f
                 path.reset()
                 path.moveTo(x0, y0)
-                path.quadraticBezierTo(qx, qy, x1, y1)
-                drawPath(path, GoldPrimary.copy(alpha = if (hot) 0.8f else 0.12f + 0.05f * min(w, 6)),
-                    style = Stroke(width = (1f + 0.8f * ln(1f + w)) * density * (if (hot) 1.7f else 1f)))
-                val sparks = min(w, 3)
-                for (k in 0 until sparks) {
-                    val tt = ((t % 3200L) / 3200f + k.toFloat() / sparks + lay.phase[e]) % 1f
-                    drawCircle(Lavender.copy(alpha = 0.9f * sin(PI.toFloat() * tt)), 2.2f * density,
-                        Offset(bez(tt, x0, qx, x1), bez(tt, y0, qy, y1)))
+                path.quadraticTo(qx, qy, x1, y1)
+                val color = if (hot) lay.colors[if (a == sel) b else a] else GoldPrimary
+                drawPath(path, color, alpha = alpha, style = lay.stroke(e, hot, dp))
+                if (hot || (mine && sel < 0)) {
+                    val sparks = min(lay.edgeW[e], if (hot) 3 else 2)
+                    for (k in 0 until sparks) {
+                        val tt = ((t % 2600L) / 2600f + k.toFloat() / sparks + lay.phase[e]) % 1f
+                        drawCircle(if (hot) Color.White else Lavender, 2.2f * dp,
+                            Offset(bez(tt, x0, qx, x1), bez(tt, y0, qy, y1)), alpha = 0.9f * sin(PI.toFloat() * tt) * show)
+                    }
                 }
             }
 
             // stars
+            val allNames = SLOT * fit * zoom >= 58f          // names only when there is room for them
+            val ring = Stroke(2.2f * dp)
             for (i in 0 until lay.n) {
-                val node = lay.nodes[i]
-                val c = Offset(view.ox + (lay.x[i] - view.cx) * s, view.oy + (lay.y[i] - view.cy) * s)
-                val r = lay.radius[i] * s
-                val col = categoryColor(node.category)
-                drawCircle(col.copy(alpha = 0.10f), r * 2.6f, c)
-                drawCircle(col.copy(alpha = 0.24f), r * 1.7f, c)
-                drawCircle(col, r, c)
-                drawCircle(Color.White.copy(alpha = 0.35f), r * 0.42f, c + Offset(-r * 0.3f, -r * 0.3f))
-                if (node.id == g.me) drawCircle(GoldPrimary, r + 5f * density, c, style = Stroke(2.2f * density))
-                if (node.id == selected) drawCircle(Color.White, r + 9f * density, c, style = Stroke(1.5f * density))
-                if (r > 11f * density) {
-                    val p = painters[lay.iconIds[i]]
-                    if (p != null) {
-                        val icon = r * 1.15f
-                        translate(c.x - icon / 2f, c.y - icon / 2f) {
-                            with(p) { draw(Size(icon, icon), colorFilter = white) }
+                val r = lay.sr[i]
+                if (r < 0.5f) continue
+                val c = Offset(lay.sx[i], lay.sy[i])
+                val dim = if (sel < 0 || i == sel || lay.lit[i]) 1f else 0.28f
+                val col = lay.colors[i]
+                drawCircle(col, r * 1.6f, c, alpha = 0.15f * dim)
+                drawCircle(col, r, c, alpha = dim)
+                drawCircle(Color.White, r * 0.45f, Offset(c.x - r * 0.28f, c.y - r * 0.28f), alpha = 0.2f * dim)
+                if (i == lay.centre) {
+                    drawCircle(GoldPrimary, r + 5f * dp, c, style = ring)
+                    val p = (t % 2400L) / 2400f                  // a slow pulse around me
+                    drawCircle(GoldPrimary, r + 5f * dp + p * 26f * dp, c, alpha = 0.5f * (1f - p), style = thin)
+                }
+                if (i == sel) drawCircle(Color.White, r + 7f * dp, c, style = Stroke(1.5f * dp))
+                if (r >= 8f * dp) {
+                    val bitmap = iconBitmap(icons, lay.iconIds[i], painters[lay.iconIds[i]], dp)
+                    if (bitmap != null) {
+                        val side = r * 1.1f
+                        translate(c.x - side / 2f, c.y - side / 2f) {
+                            drawImage(bitmap, dstSize = IntSize(side.toInt().coerceAtLeast(1), side.toInt().coerceAtLeast(1)),
+                                alpha = dim, filterQuality = FilterQuality.Low)
                         }
                     }
                 }
-                if (node.id == g.me || node.id == selected || node.taught + node.learned >= 3 || zoom > 1.6f) {
+                if ((allNames || i == lay.centre || i == sel || lay.lit[i]) && lay.grow[i] > 0.5f) {
                     val lb = lay.labels[i]
-                    drawText(lb, topLeft = Offset(c.x - lb.size.width / 2f, c.y + r + 4f * density))
+                    val gap = when (i) {                        // clear of the gold / white ring
+                        sel -> 10f
+                        lay.centre -> 9f
+                        else -> 4f
+                    } * dp
+                    drawText(lb, topLeft = Offset(c.x - lb.size.width / 2f, c.y + r + gap), alpha = dim)
                 }
             }
 
@@ -425,25 +648,24 @@ private fun GalaxyView(g: Galaxy, tr: Strings) {
                 if (cm.edge >= lay.edgeA.size) continue
                 val a = lay.edgeA[cm.edge]
                 val b = lay.edgeB[cm.edge]
-                val x0 = view.ox + (lay.x[a] - view.cx) * s
-                val y0 = view.oy + (lay.y[a] - view.cy) * s
-                val x1 = view.ox + (lay.x[b] - view.cx) * s
-                val y1 = view.oy + (lay.y[b] - view.cy) * s
-                val qx = (x0 + x1) / 2f - (y1 - y0) * 0.18f
-                val qy = (y0 + y1) / 2f + (x1 - x0) * 0.18f
-                val age = t - cm.start
-                if (age < 1800L) {
-                    val p = FastOutSlowInEasing.transform(age / 1800f)
+                val x0 = lay.sx[a]
+                val y0 = lay.sy[a]
+                val x1 = lay.sx[b]
+                val y1 = lay.sy[b]
+                val qx = ox + ((x0 + x1) / 2f - ox) * 0.55f
+                val qy = oy + ((y0 + y1) / 2f - oy) * 0.55f
+                val cAge = t - cm.start
+                if (cAge < 1800L) {
+                    val p = FastOutSlowInEasing.transform(cAge / 1800f)
                     for (k in 4 downTo 0) {
                         val tt = (p - k * 0.035f).coerceIn(0f, 1f)
-                        drawCircle(GoldPrimary.copy(alpha = 0.95f - k * 0.18f), (6f - k) * density,
-                            Offset(bez(tt, x0, qx, x1), bez(tt, y0, qy, y1)))
+                        drawCircle(GoldPrimary, (6f - k) * dp, Offset(bez(tt, x0, qx, x1), bez(tt, y0, qy, y1)),
+                            alpha = 0.95f - k * 0.18f)
                     }
-                    drawCircle(GoldPrimary.copy(alpha = 0.25f), 15f * density, Offset(bez(p, x0, qx, x1), bez(p, y0, qy, y1)))
+                    drawCircle(GoldPrimary, 15f * dp, Offset(bez(p, x0, qx, x1), bez(p, y0, qy, y1)), alpha = 0.25f)
                 } else {
-                    val p = ((age - 1800L) / 800f).coerceIn(0f, 1f)
-                    drawCircle(GoldPrimary.copy(alpha = 1f - p), lay.radius[b] * s + p * 36f * density,
-                        Offset(x1, y1), style = Stroke(3f * density))
+                    val p = ((cAge - 1800L) / 800f).coerceIn(0f, 1f)
+                    drawCircle(GoldPrimary, lay.sr[b] + p * 36f * dp, Offset(x1, y1), alpha = 1f - p, style = Stroke(3f * dp))
                 }
             }
         }
@@ -481,7 +703,7 @@ private fun StarCard(node: GalaxyNode, g: Galaxy, tr: Strings) {
             Text(if (node.id == g.me) "${node.name} · ${tr.you}" else node.name,
                 style = MaterialTheme.typography.titleMedium, color = Color.White)
             if (node.category.isNotBlank()) {
-                Text(node.category, style = MaterialTheme.typography.bodySmall, color = Lavender)
+                Text(tr.categoryName(node.category), style = MaterialTheme.typography.bodySmall, color = Lavender)
             }
             Text("${tr.taughtLearned(node.taught, node.learned)} · ${tr.connections(links)}",
                 style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
