@@ -27,4 +27,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // Back from another app: get fresh data if it is more than a minute old
+    override fun onResume() {
+        super.onResume()
+        vm.onAppResumed()
+    }
 }

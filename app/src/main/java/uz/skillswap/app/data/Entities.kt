@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 // Each @Entity class becomes one table in the SQLite database.
-// Relations: Offer -> User, Offer -> Skill, TimeSlot -> Offer, Booking -> User/TimeSlot/Offer, Review -> Booking
+// Relations: Offer -> User, Offer -> Skill, TimeSlot -> Offer, Booking -> User/TimeSlot/Offer, Review -> Offer
 
 @Entity(tableName = "users", indices = [Index(value = ["email"], unique = true)])
 data class User(
@@ -81,15 +81,21 @@ const val STATUS_BOOKED = "BOOKED"
 const val STATUS_DONE = "DONE"
 const val STATUS_CANCELLED = "CANCELLED"
 
-/** One review per finished booking (unique index on bookingId). */
+/**
+ * One review per finished booking (unique index on bookingId).
+ * It points to the OFFER and keeps the learner's first name, so the phone can show public
+ * reviews without downloading other people's bookings (privacy).
+ */
 @Entity(
     tableName = "reviews",
-    foreignKeys = [ForeignKey(entity = Booking::class, parentColumns = ["id"], childColumns = ["bookingId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index(value = ["bookingId"], unique = true)]
+    foreignKeys = [ForeignKey(entity = Offer::class, parentColumns = ["id"], childColumns = ["offerId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index(value = ["bookingId"], unique = true), Index("offerId")]
 )
 data class Review(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val bookingId: Long,
+    val offerId: Long,
+    val learnerName: String,
     val rating: Int,
     val comment: String,
     val createdAt: Long = System.currentTimeMillis()

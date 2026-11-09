@@ -43,6 +43,9 @@ class Snapshot(
  */
 class ApiClient(private val baseUrl: String = BASE_URL) {
 
+    /** Wakes the free Render server up (it sleeps after 15 minutes without visitors). */
+    suspend fun health(): Boolean = request("GET", "/health", null).optBoolean("ok", false)
+
     // ---------- accounts ----------
     suspend fun login(email: String, password: String): AuthResult =
         auth(request("POST", "/login", null, JSONObject().put("email", email).put("password", password)))
@@ -83,7 +86,8 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
                     createdAt = it.getDouble("createdAt").toLong())
             },
             reviews = o.getJSONArray("reviews").objects().map {
-                Review(id = it.getLong("id"), bookingId = it.getLong("bookingId"), rating = it.getInt("rating"),
+                Review(id = it.getLong("id"), bookingId = it.getLong("bookingId"), offerId = it.getLong("offerId"),
+                    learnerName = it.getString("learnerName"), rating = it.getInt("rating"),
                     comment = it.getString("comment"), createdAt = it.getDouble("createdAt").toLong())
             }
         )

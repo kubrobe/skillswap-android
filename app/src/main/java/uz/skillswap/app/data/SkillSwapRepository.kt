@@ -12,6 +12,7 @@ import uz.skillswap.app.data.remote.AuthResult
 import uz.skillswap.app.data.remote.OfflineException
 import uz.skillswap.app.data.remote.Snapshot
 import uz.skillswap.app.util.Security
+import uz.skillswap.app.util.TokenCipher
 import uz.skillswap.app.util.Validators
 
 /** What the small status pill on the Browse screen shows. */
@@ -42,7 +43,34 @@ class SkillSwapRepository(
     private val _sync = MutableStateFlow(SyncState())
     val sync: StateFlow<SyncState> = _sync.asStateFlow()
 
-    private val token: String? get() = prefs.getString(KEY_TOKEN, null)
+    // The session token is saved ENCRYPTED (see TokenCipher) and kept in memory after the first read.
+    private var cachedToken: String? = null
+    private var tokenLoaded = false
+
+    private val token: String?
+        get() {
+            if (!tokenLoaded) {
+                cachedToken = prefs.getString(KEY_TOKEN, null)?.let { TokenCipher.decrypt(it) }
+                tokenLoaded = true
+            }
+            return cachedToken
+        }
+
+    private fun saveToken(value: String?) {
+        cachedToken = value
+        tokenLoaded = true
+        val editor = prefs.edit()
+        if (value == null) {
+            editor.remove(KEY_TOKEN)
+        } else {
+            try {
+                editor.putString(KEY_TOKEN, TokenCipher.encrypt(value))
+            } catch (e: Exception) {
+                editor.remove(KEY_TOKEN)        // no secure storage: the token lives only in memory
+            }
+        }
+        editor.apply()
+    }
 
     // ---------- start-up ----------
     suspend fun seedIfEmpty() {
@@ -74,6 +102,7 @@ class SkillSwapRepository(
     /** Download a fresh copy from the server. Safe to call any time; problems end up in [sync]. */
     suspend fun refresh() {
         val t = token ?: return
+        if (_sync.value.syncing) return                 // one download at a time
         _sync.value = _sync.value.copy(syncing = true, problem = null)
         try {
             applySnapshot(api.sync(t))
@@ -89,6 +118,17 @@ class SkillSwapRepository(
             // unexpected answer (e.g. a Wi-Fi login page instead of our server): keep the saved data
             _sync.value = _sync.value.copy(syncing = false, problem = "Could not update the data. Showing saved data.")
         }
+    }
+
+    /** Called when the user comes back to the app: download again only if the data is older than 1 minute. */
+    suspend fun refreshIfStale() {
+        if (token == null) return
+        if (System.currentTimeMillis() - prefs.getLong(KEY_LAST_SYNC, 0L) > 60_000L) refresh()
+    }
+
+    /** The free server sleeps; poke it at start-up so it is awake by the time the user taps "Log in". */
+    suspend fun wakeServer() {
+        try { api.health() } catch (e: Exception) { /* offline is fine here */ }
     }
 
     private suspend fun applySnapshot(s: Snapshot) {
@@ -128,7 +168,8 @@ class SkillSwapRepository(
     }
 
     private suspend fun startOnlineSession(auth: AuthResult): User {
-        prefs.edit().putString(KEY_TOKEN, auth.token).putLong(KEY_USER_ID, auth.user.id).apply()
+        saveToken(auth.token)
+        prefs.edit().putLong(KEY_USER_ID, auth.user.id).apply()
         _sync.value = SyncState(online = true)
         _currentUser.value = auth.user
         refresh()                                   // download the real data into Room
@@ -153,7 +194,8 @@ class SkillSwapRepository(
     }
 
     private fun startPhoneSession(user: User) {
-        prefs.edit().remove(KEY_TOKEN).putLong(KEY_USER_ID, user.id).apply()
+        saveToken(null)
+        prefs.edit().putLong(KEY_USER_ID, user.id).apply()
         _sync.value = SyncState(online = false)
         _currentUser.value = user
     }
@@ -188,7 +230,8 @@ class SkillSwapRepository(
             db.syncDao().clearAll()
             seedIfEmpty()
         }
-        prefs.edit().remove(KEY_TOKEN).remove(KEY_USER_ID).remove(KEY_LAST_SYNC).apply()
+        saveToken(null)
+        prefs.edit().remove(KEY_USER_ID).remove(KEY_LAST_SYNC).apply()
         _sync.value = SyncState()
         _currentUser.value = null
     }

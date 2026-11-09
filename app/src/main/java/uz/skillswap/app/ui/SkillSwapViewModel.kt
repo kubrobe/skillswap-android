@@ -70,6 +70,7 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
             _ready.value = true
             repo.refresh()          // online account: download the newest data in the background
         }
+        viewModelScope.launch { repo.wakeServer() }
     }
 
     fun offer(id: Long): Flow<OfferCard?> = repo.offer(id)
@@ -82,6 +83,11 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     }
 
     fun refresh() = viewModelScope.launch { repo.refresh() }
+
+    /** The app came back to the screen (e.g. after switching apps). */
+    fun onAppResumed() {
+        if (_ready.value) viewModelScope.launch { repo.refreshIfStale() }
+    }
 
     fun register(name: String, email: String, password: String, onResult: (String?) -> Unit) =
         viewModelScope.launch {

@@ -134,7 +134,8 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     cancelTarget?.let { target ->
         ConfirmDialog(
             title = "Cancel this lesson?",
-            text = "${target.skillName} · ${slotLabel(target.day, target.hour)}\nThe time becomes free for other learners.",
+            text = if (learnMode) "${target.skillName} · ${slotLabel(target.day, target.hour)}\nThe time becomes free for other learners."
+                   else "${target.learnerName} booked ${target.skillName} · ${slotLabel(target.day, target.hour)}.\nCancel it? The learner will see it as cancelled.",
             confirmLabel = "Yes, cancel",
             onConfirm = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -199,6 +200,10 @@ private fun LessonCard(
                     Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { Text("Mark as done") }
                     OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp)) { Text("Cancel") }
                 }
+            }
+            if (!learnMode && b.status == STATUS_BOOKED) {
+                OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.padding(top = 4.dp)) { Text("Cancel this lesson") }
             }
             if (learnMode && b.status == STATUS_DONE && b.myRating == null) {
                 OutlinedButton(onClick = onRate, shape = RoundedCornerShape(14.dp)) { Text("⭐ Rate this lesson") }

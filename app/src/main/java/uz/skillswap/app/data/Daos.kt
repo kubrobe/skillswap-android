@@ -45,10 +45,8 @@ private const val OFFER_SELECT = """
     SELECT o.id AS offerId, s.name AS skillName, s.emoji AS emoji, s.category AS category,
            o.level AS level, o.description AS description,
            u.id AS teacherId, u.fullName AS teacherName,
-           COALESCE((SELECT AVG(r.rating) FROM reviews r JOIN bookings b ON b.id = r.bookingId
-                     WHERE b.offerId = o.id), 0.0) AS rating,
-           (SELECT COUNT(*) FROM reviews r JOIN bookings b ON b.id = r.bookingId
-            WHERE b.offerId = o.id) AS reviewCount,
+           COALESCE((SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.offerId = o.id), 0.0) AS rating,
+           (SELECT COUNT(*) FROM reviews r WHERE r.offerId = o.id) AS reviewCount,
            (SELECT COUNT(*) FROM time_slots t WHERE t.offerId = o.id AND t.isBooked = 0) AS freeSlots
     FROM offers o
     JOIN skills s ON s.id = o.skillId
@@ -78,9 +76,8 @@ abstract class OfferDao {
     abstract suspend fun slotsOf(offerId: Long): List<TimeSlot>
 
     @Query(
-        """SELECT r.rating AS rating, r.comment AS comment, r.createdAt AS createdAt, u.fullName AS learnerName
-           FROM reviews r JOIN bookings b ON b.id = r.bookingId JOIN users u ON u.id = b.learnerId
-           WHERE b.offerId = :offerId ORDER BY r.createdAt DESC"""
+        """SELECT r.rating AS rating, r.comment AS comment, r.createdAt AS createdAt, r.learnerName AS learnerName
+           FROM reviews r WHERE r.offerId = :offerId ORDER BY r.createdAt DESC"""
     )
     abstract fun observeReviews(offerId: Long): Flow<List<ReviewLine>>
 
@@ -178,11 +175,16 @@ abstract class BookingDao {
         return insertBooking(Booking(learnerId = learnerId, slotId = slotId, offerId = slot.offerId))
     }
 
-    /** Cancel a lesson and make the time free again for other learners. */
+    @Query("SELECT fullName FROM users WHERE id = :id")
+    protected abstract suspend fun userName(id: Long): String?
+
+    /** Cancel a lesson (the learner OR the teacher may do it) and make the time free again. */
     @Transaction
     open suspend fun cancel(userId: Long, bookingId: Long) {
         val b = booking(bookingId)
-        if (b == null || b.learnerId != userId) throw IllegalArgumentException("Booking not found")
+        if (b == null || (b.learnerId != userId && teacherOf(b.offerId) != userId)) {
+            throw IllegalArgumentException("Booking not found")
+        }
         if (b.status != STATUS_BOOKED) throw IllegalStateException("Only a planned lesson can be cancelled")
         setStatus(bookingId, STATUS_CANCELLED)
         freeSlot(b.slotId)
@@ -194,6 +196,7 @@ abstract class BookingDao {
         if (b == null || b.learnerId != userId) throw IllegalArgumentException("Booking not found")
         if (b.status != STATUS_BOOKED) throw IllegalStateException("Only a planned lesson can be marked as done")
         setStatus(bookingId, STATUS_DONE)
+        freeSlot(b.slotId)          // a WEEKLY time: after the lesson it is free for the next learner
     }
 
     /** Only the learner, only after the lesson is DONE, and only once per lesson. */
@@ -204,6 +207,8 @@ abstract class BookingDao {
         if (b.status != STATUS_DONE) throw IllegalStateException("You can rate a lesson after it is done")
         if (reviewCount(bookingId) > 0) throw IllegalStateException("You already rated this lesson")
         require(rating in 1..5) { "Rating must be from 1 to 5" }
-        return insertReview(Review(bookingId = bookingId, rating = rating, comment = comment.trim()))
+        val firstName = userName(userId)?.substringBefore(' ') ?: "Learner"
+        return insertReview(Review(bookingId = bookingId, offerId = b.offerId, learnerName = firstName,
+            rating = rating, comment = comment.trim()))
     }
 }
