@@ -287,6 +287,15 @@ open class Strings {
     open val noVoice = "Voice input is not available on this phone. Type instead."
     open val noPicks = "No free lesson matches yet. Try other words."
     open val speak = "Speak"
+
+    // ---- Telegram ----
+    open val telegramTitle = "Telegram reminders"
+    open val telegramSub = "Booking alerts and a reminder 1 hour before each lesson"
+    open val telegramConnect = "Connect Telegram"
+    open val telegramConnected = "✅ Connected — messages arrive in Telegram"
+    open val telegramDisconnect = "Disconnect"
+    open val telegramOff = "The bot is not set up on the server yet"
+    open val telegramWaiting = "Tap Start in Telegram, then come back"
 }
 
 object En : Strings()
@@ -537,6 +546,14 @@ object Uz : Strings() {
     override val noVoice = "Bu telefonda ovozli kiritish yoʻq. Yozib kiriting."
     override val noPicks = "Hozircha mos boʻsh dars yoʻq. Boshqa soʻzlarni sinab koʻring."
     override val speak = "Gapirish"
+
+    override val telegramTitle = "Telegram eslatmalari"
+    override val telegramSub = "Yozilish xabarlari va har darsdan 1 soat oldin eslatma"
+    override val telegramConnect = "Telegramni ulash"
+    override val telegramConnected = "✅ Ulangan — xabarlar Telegramga keladi"
+    override val telegramDisconnect = "Uzish"
+    override val telegramOff = "Bot hali serverda sozlanmagan"
+    override val telegramWaiting = "Telegramda Start ni bosing va qayting"
 }
 
 /** Русский. */
@@ -785,4 +802,12 @@ object Ru : Strings() {
     override val noVoice = "Голосовой ввод недоступен на этом телефоне. Напишите текстом."
     override val noPicks = "Пока нет подходящих свободных уроков. Попробуйте другие слова."
     override val speak = "Говорить"
+
+    override val telegramTitle = "Напоминания в Telegram"
+    override val telegramSub = "Уведомления о записи и напоминание за 1 час до урока"
+    override val telegramConnect = "Подключить Telegram"
+    override val telegramConnected = "✅ Подключено — сообщения приходят в Telegram"
+    override val telegramDisconnect = "Отключить"
+    override val telegramOff = "Бот ещё не настроен на сервере"
+    override val telegramWaiting = "Нажмите Start в Telegram и вернитесь"
 }

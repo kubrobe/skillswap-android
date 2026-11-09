@@ -49,6 +49,9 @@ class Impact(
 class WeekCount(val week: String, val lessons: Int)       // week = Monday, "2026-11-02"
 class TopSkill(val name: String, val emoji: String, val lessons: Int)
 
+/** Telegram bot: is it set up on the server, and is this account linked to a chat. */
+class TelegramStatus(val configured: Boolean, val linked: Boolean)
+
 /** AI matchmaker answer: what it understood and up to 3 lessons, each with a reason. source = "ai" or "smart". */
 class MatchResult(val source: String, val understood: String, val picks: List<MatchPick>)
 class MatchPick(val offerId: Long, val reason: String)
@@ -164,6 +167,19 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
                 TopSkill(it.optString("name"), it.optString("emoji", "🎓"), it.optInt("lessons"))
             }
         )
+    }
+
+    // ---------- Telegram bot ----------
+    suspend fun telegramStatus(token: String): TelegramStatus {
+        val o = request("GET", "/telegram", token)
+        return TelegramStatus(o.optBoolean("configured"), o.optBoolean("linked"))
+    }
+
+    /** A one-time t.me link; opening it and tapping Start links the chat. */
+    suspend fun telegramLink(token: String): String = request("POST", "/telegram/link", token).getString("url")
+
+    suspend fun telegramUnlink(token: String) {
+        request("POST", "/telegram/unlink", token)
     }
 
     /** "I want to learn guitar on weekends" -> the best lessons. [lang] = "en", "uz" or "ru". */

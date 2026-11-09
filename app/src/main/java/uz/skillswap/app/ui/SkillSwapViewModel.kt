@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui
 
+import uz.skillswap.app.data.remote.TelegramStatus
 import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.data.remote.Galaxy
 import java.util.Locale
@@ -164,6 +165,26 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     fun saveLiked(skillIds: List<Long>) {
         val merged = uz.skillswap.app.util.mergeWants(wants.value, skillIds)
         if (merged.toSet() != wants.value.toSet()) setWants(merged) { }
+    }
+
+    // Telegram bot (Profile card)
+    private val _telegram = MutableStateFlow<TelegramStatus?>(null)
+    val telegram: StateFlow<TelegramStatus?> = _telegram.asStateFlow()
+
+    fun loadTelegram() = viewModelScope.launch {
+        runCatching { repo.telegramStatus() }.onSuccess { _telegram.value = it }
+    }
+
+    /** onResult(link, error): the link opens Telegram, where the user taps Start. */
+    fun connectTelegram(onResult: (String?, String?) -> Unit) = viewModelScope.launch {
+        runCatching { repo.telegramLink() }
+            .onSuccess { onResult(it, null) }
+            .onFailure { onResult(null, it.message ?: "Telegram is not available") }
+    }
+
+    fun disconnectTelegram() = viewModelScope.launch {
+        runCatching { repo.telegramUnlink() }
+        loadTelegram()
     }
 
     /** AI matchmaker; onResult(result, error). Answers come in the app's language. */

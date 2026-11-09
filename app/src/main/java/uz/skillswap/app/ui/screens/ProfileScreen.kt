@@ -1,5 +1,8 @@
 package uz.skillswap.app.ui.screens
 
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalUriHandler
 import uz.skillswap.app.ui.i18n.LanguagePicker
 import uz.skillswap.app.ui.i18n.Strings
 import uz.skillswap.app.ui.i18n.LocalStrings
@@ -198,6 +201,8 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                 }
             }
 
+            TelegramCard(vm)
+
             // English · Oʻzbekcha · Русский: the whole app switches at once
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -221,6 +226,73 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
             onSave = { n, b, onError -> vm.updateProfile(n, b) { err -> if (err == null) editing = false else onError(err) } },
             onDismiss = { editing = false }
         )
+    }
+}
+
+/** Link the SkillSwap Telegram bot: booking alerts and lesson reminders even when the app is closed. */
+@Composable
+private fun TelegramCard(vm: SkillSwapViewModel) {
+    val tr = LocalStrings.current
+    val status by vm.telegram.collectAsStateWithLifecycle()
+    val uriHandler = LocalUriHandler.current
+    var note by remember { mutableStateOf<String?>(null) }
+    var waiting by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { vm.loadTelegram() }
+    // after opening Telegram, check every 3 seconds (for 2 minutes) whether the user tapped Start
+    LaunchedEffect(waiting) {
+        if (waiting) {
+            repeat(40) {
+                delay(3_000)
+                vm.loadTelegram()
+                if (vm.telegram.value?.linked == true) {
+                    waiting = false
+                    return@LaunchedEffect
+                }
+            }
+            waiting = false
+        }
+    }
+    AppCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("✈️", fontSize = 28.sp)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(tr.telegramTitle, style = MaterialTheme.typography.titleMedium)
+                    Text(tr.telegramSub, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            val s = status
+            when {
+                s?.linked == true -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr.telegramConnected, style = MaterialTheme.typography.bodyMedium, color = Green,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = { vm.disconnectTelegram() }) { Text(tr.telegramDisconnect) }
+                }
+                s != null && !s.configured -> Text(tr.telegramOff, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> OutlinedButton(
+                    onClick = {
+                        note = null
+                        vm.connectTelegram { url, err ->
+                            note = err
+                            if (url != null) {
+                                try {
+                                    uriHandler.openUri(url)
+                                    waiting = true
+                                    note = tr.telegramWaiting
+                                } catch (e: Exception) {
+                                    note = url                      // no Telegram app: show the link to copy
+                                }
+                            }
+                            Unit
+                        }
+                    },
+                    shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()
+                ) { Text(tr.telegramConnect) }
+            }
+            note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
     }
 }
 

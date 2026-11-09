@@ -285,6 +285,12 @@ class SkillSwapRepository(
     fun savedLanguage(): String? = prefs.getString(KEY_LANG, null)
     fun saveLanguage(code: String) = prefs.edit().putString(KEY_LANG, code).apply()
 
+    // ---------- Telegram bot ----------
+    private fun requireToken(): String = token ?: throw IllegalStateException("Please log in first")
+    suspend fun telegramStatus() = api.telegramStatus(requireToken())
+    suspend fun telegramLink(): String = api.telegramLink(requireToken())
+    suspend fun telegramUnlink() = api.telegramUnlink(requireToken())
+
     /** AI matchmaker: what the user said or typed -> the best lessons. */
     suspend fun match(text: String, lang: String): uz.skillswap.app.data.remote.MatchResult {
         val t = token ?: throw IllegalStateException("Please log in first")
