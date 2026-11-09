@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui
 
+import uz.skillswap.app.data.remote.Galaxy
 import java.util.Locale
 import uz.skillswap.app.ui.i18n.Lang
 import androidx.lifecycle.ViewModel
@@ -162,6 +163,18 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     fun saveLiked(skillIds: List<Long>) {
         val merged = uz.skillswap.app.util.mergeWants(wants.value, skillIds)
         if (merged.toSet() != wants.value.toSet()) setWants(merged) { }
+    }
+
+    // Skill Galaxy screen
+    private val _galaxy = MutableStateFlow<Galaxy?>(null)
+    val galaxy: StateFlow<Galaxy?> = _galaxy.asStateFlow()
+    private val _galaxyError = MutableStateFlow<String?>(null)
+    val galaxyError: StateFlow<String?> = _galaxyError.asStateFlow()
+
+    fun loadGalaxy() = viewModelScope.launch {
+        runCatching { repo.galaxy() }
+            .onSuccess { _galaxy.value = it; _galaxyError.value = null }
+            .onFailure { _galaxyError.value = it.message ?: "Could not load the galaxy" }
     }
 
     // Community impact screen

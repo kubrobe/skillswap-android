@@ -49,6 +49,11 @@ class Impact(
 class WeekCount(val week: String, val lessons: Int)       // week = Monday, "2026-11-02"
 class TopSkill(val name: String, val emoji: String, val lessons: Int)
 
+/** Skill Galaxy: people (first names only) and lessons from teacher to learner. */
+class Galaxy(val me: Long, val nodes: List<GalaxyNode>, val edges: List<GalaxyEdge>)
+class GalaxyNode(val id: Long, val name: String, val category: String, val emoji: String, val taught: Int, val learned: Int)
+class GalaxyEdge(val from: Long, val to: Long, val lessons: Int, val emoji: String)
+
 /** Everything the app downloads in one request; the tables are written into Room as one transaction. */
 class Snapshot(
     val me: User,
@@ -153,6 +158,21 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
             weekly = (o.optJSONArray("weekly") ?: JSONArray()).objects().map { WeekCount(it.optString("week"), it.optInt("lessons")) },
             topSkills = (o.optJSONArray("topSkills") ?: JSONArray()).objects().map {
                 TopSkill(it.optString("name"), it.optString("emoji", "🎓"), it.optInt("lessons"))
+            }
+        )
+    }
+
+    /** Who taught whom: the data for the Skill Galaxy screen. */
+    suspend fun galaxy(token: String): Galaxy {
+        val o = request("GET", "/galaxy", token)
+        return Galaxy(
+            me = o.optLong("me"),
+            nodes = (o.optJSONArray("nodes") ?: JSONArray()).objects().map {
+                GalaxyNode(it.getLong("id"), it.optString("name"), it.optString("category"),
+                    it.optString("emoji", "🎓"), it.optInt("taught"), it.optInt("learned"))
+            },
+            edges = (o.optJSONArray("edges") ?: JSONArray()).objects().map {
+                GalaxyEdge(it.getLong("from"), it.getLong("to"), it.optInt("lessons", 1), it.optString("emoji", "🎓"))
             }
         )
     }

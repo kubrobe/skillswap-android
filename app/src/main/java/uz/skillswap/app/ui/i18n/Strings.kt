@@ -262,6 +262,16 @@ open class Strings {
     open val now = "now"
     open val growthNote = "Last 3 full weeks compared with the 3 weeks before."
     open val popularSkills = "Most popular skills"
+
+    // ---- skill galaxy ----
+    open val galaxyTitle = "Skill Galaxy"
+    open fun galaxyStats(people: Int, lessons: Int) = "$people people · $lessons lessons"
+    open val galaxyHint = "Pinch to zoom · tap a star · knowledge flows from teacher to learner"
+    open val galaxyEmpty = "No lessons yet"
+    open val galaxyEntrySub = "See who teaches whom, live"
+    open val you = "You"
+    open fun taughtLearned(t: Int, l: Int) = "Taught $t · learned $l"
+    open fun connections(n: Int) = "$n connections"
 }
 
 object En : Strings()
@@ -489,6 +499,15 @@ object Uz : Strings() {
     override val now = "hozir"
     override val growthNote = "Oxirgi 3 hafta oldingi 3 hafta bilan solishtirilgan."
     override val popularSkills = "Eng mashhur koʻnikmalar"
+
+    override val galaxyTitle = "Bilim galaktikasi"
+    override fun galaxyStats(people: Int, lessons: Int) = "$people kishi · $lessons dars"
+    override val galaxyHint = "Kattalashtirish uchun chimchilang · yulduzga bosing · bilim ustozdan oʻquvchiga oqadi"
+    override val galaxyEmpty = "Hali dars yoʻq"
+    override val galaxyEntrySub = "Kim kimga oʻrgatayotganini jonli koʻring"
+    override val you = "Siz"
+    override fun taughtLearned(t: Int, l: Int) = "Oʻrgatdi: $t · oʻrgandi: $l"
+    override fun connections(n: Int) = "$n ta aloqa"
 }
 
 /** Русский. */
@@ -714,4 +733,13 @@ object Ru : Strings() {
     override val now = "сейчас"
     override val growthNote = "Последние 3 недели по сравнению с 3 неделями до них."
     override val popularSkills = "Самые популярные навыки"
+
+    override val galaxyTitle = "Галактика навыков"
+    override fun galaxyStats(people: Int, lessons: Int) = "участников: $people · уроков: $lessons"
+    override val galaxyHint = "Щипок — масштаб · нажмите на звезду · знания текут от учителя к ученику"
+    override val galaxyEmpty = "Пока нет уроков"
+    override val galaxyEntrySub = "Смотрите вживую, кто кого учит"
+    override val you = "Вы"
+    override fun taughtLearned(t: Int, l: Int) = "Провёл: $t · изучил: $l"
+    override fun connections(n: Int) = "связей: $n"
 }

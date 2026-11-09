@@ -102,7 +102,9 @@ import uz.skillswap.app.ui.components.SmallPill
 import uz.skillswap.app.ui.components.StaggerIn
 
 @Composable
-fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: () -> Unit, onImpact: () -> Unit) {
+fun HomeScreen(
+    vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: () -> Unit, onImpact: () -> Unit, onGalaxy: () -> Unit
+) {
     val offers by vm.offers.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
@@ -129,6 +131,8 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
                     Text(tr.hi(user?.fullName?.substringBefore(' ') ?: tr.guest),
                         style = MaterialTheme.typography.headlineSmall, color = Color.White,
                         modifier = Modifier.weight(1f))
+                    GalaxyButton(tr.galaxyTitle, onGalaxy)
+                    Spacer(Modifier.width(8.dp))
                     wallet?.let { w -> CreditsChip(w.balance) }
                 }
                 Text(tr.whatToLearn, style = MaterialTheme.typography.bodyMedium,
@@ -249,6 +253,19 @@ fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
 
 fun ratingText(offer: OfferCard, newLabel: String = "New"): String =
     if (offer.reviewCount == 0) newLabel else "★ ${offer.rating} (${offer.reviewCount})"
+
+/** Round glass button in the header that opens the Skill Galaxy. */
+@Composable
+private fun GalaxyButton(label: String, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    Box(
+        Modifier.size(36.dp).pressScale(source).clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.2f))
+            .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+            .clickable(interactionSource = source, indication = null, onClickLabel = label, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Text("🌌", fontSize = 18.sp) }
+}
 
 /** Credits balance in the header. */
 @Composable

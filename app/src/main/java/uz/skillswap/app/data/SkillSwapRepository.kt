@@ -285,6 +285,12 @@ class SkillSwapRepository(
     fun savedLanguage(): String? = prefs.getString(KEY_LANG, null)
     fun saveLanguage(code: String) = prefs.edit().putString(KEY_LANG, code).apply()
 
+    /** Who taught whom, for the Skill Galaxy screen. */
+    suspend fun galaxy(): uz.skillswap.app.data.remote.Galaxy {
+        val t = token ?: throw IllegalStateException("Please log in first")
+        return api.galaxy(t)
+    }
+
     /** Community numbers for the Impact screen (public, so no token). */
     suspend fun impact(): uz.skillswap.app.data.remote.Impact = api.impact()
 

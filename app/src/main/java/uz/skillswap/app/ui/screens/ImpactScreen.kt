@@ -70,7 +70,7 @@ import uz.skillswap.app.util.weekLabel
  * The numbers reload after every live change, so a lesson finished during the demo shows up at once.
  */
 @Composable
-fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
+fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit, onGalaxy: () -> Unit) {
     val impact by vm.impact.collectAsStateWithLifecycle()
     val error by vm.impactError.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
@@ -112,6 +112,18 @@ fun ImpactScreen(vm: SkillSwapViewModel, onBack: () -> Unit) {
             Modifier.padding(16.dp).navigationBarsPadding().padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // the same community as a living picture
+            AppCard(Modifier.fillMaxWidth(), onClick = onGalaxy) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🌌", fontSize = 30.sp)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(tr.galaxyTitle, style = MaterialTheme.typography.titleMedium)
+                        Text(tr.galaxyEntrySub, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("›", style = MaterialTheme.typography.headlineSmall, color = Gold)
+                }
+            }
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatTile("👥", data.members, tr.statMembers, null)
                 StatTile("🎓", data.lessonsDone, tr.statLessonsFinished, tr.comingUp(data.upcoming))
