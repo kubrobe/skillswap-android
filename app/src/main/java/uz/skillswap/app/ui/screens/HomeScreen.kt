@@ -3,7 +3,9 @@ package uz.skillswap.app.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import uz.skillswap.app.data.Skill
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.ui.components.AppCard
+import uz.skillswap.app.ui.components.glassBorder
+import uz.skillswap.app.ui.components.glassFill
 import uz.skillswap.app.ui.theme.BrandEnd
 import uz.skillswap.app.ui.theme.BrandStart
 import androidx.compose.foundation.lazy.LazyColumn
@@ -243,7 +247,7 @@ private fun MatchCard(m: Match, onClick: () -> Unit) {
     val textColor = if (twoWay) Color.White else MaterialTheme.colorScheme.onSurface
     val base = Modifier.width(250.dp).clip(shape)
     val filled = if (twoWay) base.background(Brush.linearGradient(listOf(BrandStart, BrandEnd)))
-                 else base.background(MaterialTheme.colorScheme.surfaceVariant)
+                 else base.background(glassFill()).border(BorderStroke(1.dp, glassBorder()), shape)
     Column(filled.clickable(onClick = onClick).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(m.emoji, fontSize = 28.sp)

@@ -73,6 +73,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     var bookedText by remember { mutableStateOf<String?>(null) }   // set after a successful booking
 
     Scaffold(
+        containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         snackbarHost = { SnackbarHost(snackbar, Modifier.navigationBarsPadding()) }
     ) { padding ->

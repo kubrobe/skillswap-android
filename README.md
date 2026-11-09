@@ -12,7 +12,7 @@ Profile (stats, reputation, member level, edit profile)
 users · skills · offers (user→skill) · time_slots (→offer) · bookings (→user, slot, offer) · reviews (→booking)
 
 ## Design and motion
-Poppins font bundled in the app · gradient headers · one card style (`AppCard`) · bronze/silver/gold levels ·
+Glass design: drifting colour glow behind translucent glass cards with light edges · floating glass tab bar with a spring capsule · iOS-style push transitions with parallax · Poppins font · gradient headers · one card style (`AppCard`) · bronze/silver/gold levels ·
 fade+slide screen transitions (250 ms) · press-scale on cards and chips · staggered list entrance · count-up statistics ·
 confirm dialogs · animated booking success · light and dark theme follow the phone.
 Compose animations follow the phone's "animation scale" setting, so "Remove animations" turns them off.

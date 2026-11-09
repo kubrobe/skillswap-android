@@ -14,6 +14,12 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.random.Random
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.LocalIndication
@@ -96,7 +102,11 @@ fun levelMedal(level: String): String = when (level) {
 @Composable
 fun Modifier.pressScale(source: InteractionSource): Modifier {
     val pressed by source.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, tween(120), label = "press")
+    // a spring, like iOS: quick down, small bounce back up
+    val scale by animateFloatAsState(
+        if (pressed) 0.96f else 1f,
+        spring(dampingRatio = 0.55f, stiffness = 600f), label = "press"
+    )
     return this.graphicsLayer {
         scaleX = scale
         scaleY = scale
@@ -113,9 +123,11 @@ fun StaggerIn(index: Int, content: @Composable () -> Unit) {
             shown = true
         }
     }
-    val progress by animateFloatAsState(if (shown) 1f else 0f, tween(260), label = "stagger")
+    val progress by animateFloatAsState(
+        if (shown) 1f else 0f, spring(dampingRatio = 0.72f, stiffness = 240f), label = "stagger"
+    )
     Box(Modifier.graphicsLayer {
-        alpha = progress
+        alpha = progress.coerceIn(0f, 1f)
         translationY = (1f - progress) * 24.dp.toPx()
     }) { content() }
 }
@@ -127,6 +139,50 @@ fun CountUpText(target: Int, style: TextStyle, color: Color) {
     Text("$value", style = style, color = color)
 }
 
+// ---- glass look ----
+
+/** Translucent card fill: the coloured glow behind the app shines through it. */
+@Composable
+fun glassFill(): Color =
+    if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
+    else Color.White.copy(alpha = 0.72f)
+
+/** The light edge of a glass panel: brighter at the top-left, fading out. */
+@Composable
+fun glassBorder(): Brush =
+    if (isSystemInDarkTheme()) Brush.linearGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.04f)))
+    else Brush.linearGradient(listOf(Color.White, MaterialTheme.colorScheme.outlineVariant))
+
+/**
+ * The background of the whole app: three soft colour glows that drift very slowly.
+ * Drawn with radial gradients (no blur), so it stays smooth on mid-range phones.
+ */
+@Composable
+fun GlassBackground(modifier: Modifier = Modifier) {
+    val dark = isSystemInDarkTheme()
+    val base = MaterialTheme.colorScheme.background
+    val drift = rememberInfiniteTransition(label = "glow")
+    val a by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(16_000, easing = LinearEasing), RepeatMode.Reverse), label = "a")
+    val b by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(23_000, easing = LinearEasing), RepeatMode.Reverse), label = "b")
+    val strength = if (dark) 0.42f else 0.30f
+    Canvas(modifier.fillMaxSize()) {
+        drawRect(base)
+        val w = size.width
+        val h = size.height
+        val glows = listOf(
+            Triple(BrandStart, Offset(w * (0.12f + 0.25f * a), h * (0.16f + 0.10f * b)), w * 0.80f),
+            Triple(BrandEnd, Offset(w * (0.92f - 0.30f * b), h * (0.52f + 0.14f * a)), w * 0.75f),
+            Triple(Color(0xFF38BDF8), Offset(w * (0.28f + 0.30f * b), h * (0.94f - 0.12f * a)), w * 0.65f)
+        )
+        glows.forEach { (color, center, radius) ->
+            drawCircle(
+                brush = Brush.radialGradient(listOf(color.copy(alpha = strength), Color.Transparent), center = center, radius = radius),
+                radius = radius, center = center
+            )
+        }
+    }
+}
+
 // ---- layout building blocks ----
 
 /** The coloured header with rounded bottom corners. It also fills the area behind the status bar. */
@@ -136,7 +192,7 @@ fun GradientHeader(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(Brush.linearGradient(listOf(BrandStart, BrandEnd)))
+            .background(Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.92f), BrandEnd.copy(alpha = 0.86f))))
             .statusBarsPadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -151,9 +207,9 @@ fun AppCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = RoundedCornerShape(22.dp)
-    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    val shape = RoundedCornerShape(24.dp)
+    val colors = CardDefaults.cardColors(containerColor = glassFill())
+    val border = BorderStroke(1.dp, glassBorder())
     if (onClick == null) {
         Card(modifier, shape = shape, colors = colors, border = border, content = content)
     } else {
@@ -209,15 +265,17 @@ fun Pill(
     onClick: () -> Unit,
     selectedBg: Color = MaterialTheme.colorScheme.primary,
     selectedFg: Color = Color.White,
-    idleBg: Color = MaterialTheme.colorScheme.surfaceVariant,
+    idleBg: Color = glassFill(),
     idleFg: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
     val source = remember { MutableInteractionSource() }
-    val bg by animateColorAsState(if (selected) selectedBg else idleBg, tween(180), label = "pillBg")
+    val bg by animateColorAsState(if (selected) selectedBg else idleBg, tween(200), label = "pillBg")
+    val pop by animateFloatAsState(if (selected) 1.04f else 1f, spring(dampingRatio = 0.5f, stiffness = 500f), label = "pillPop")
     val fg by animateColorAsState(if (selected) selectedFg else idleFg, tween(180), label = "pillFg")
     Box(
         modifier = Modifier
             .pressScale(source)
+            .graphicsLayer { scaleX = pop; scaleY = pop }
             .clip(CircleShape)
             .background(bg)
             .clickable(interactionSource = source, indication = LocalIndication.current, onClick = onClick)

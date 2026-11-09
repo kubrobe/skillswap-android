@@ -111,6 +111,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
     )
 
     Scaffold(
+        containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->

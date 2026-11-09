@@ -18,6 +18,34 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntOffset
+import uz.skillswap.app.ui.components.GlassBackground
+import uz.skillswap.app.ui.components.glassBorder
+import uz.skillswap.app.ui.components.glassFill
+import uz.skillswap.app.ui.theme.BrandEnd
+import uz.skillswap.app.ui.theme.BrandStart
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,8 +57,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -120,33 +146,39 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     }
 
     Box(Modifier.fillMaxSize()) {
+    GlassBackground()                    // slowly drifting colour glow behind every screen
     Scaffold(
+        containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),   // each screen handles its own insets
         bottomBar = {
             if (currentRoute in tabs.map { it.route }) {
-                NavigationBar {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = currentRoute == tab.route,
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                nav.navigateToTab(tab.route)
-                            },
-                            label = { Text(tab.label) },
-                            icon = { Icon(tab.icon, contentDescription = null) }
-                        )
-                    }
+                GlassTabBar(currentRoute) { route ->
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    nav.navigateToTab(route)
                 }
             }
         }
     ) { padding ->
-        // Short, calm transitions: a fade plus a very small horizontal slide (about 250 ms)
+        // iOS-style motion: a detail screen is PUSHED in from the right with a spring while the
+        // screen below slides a little to the left (parallax); switching tabs is a soft fade + zoom.
         NavHost(
             nav, startDestination = start, modifier = Modifier.padding(padding),
-            enterTransition = { fadeIn(tween(260)) + slideInHorizontally(tween(260)) { it / 12 } },
-            exitTransition = { fadeOut(tween(160)) },
-            popEnterTransition = { fadeIn(tween(260)) + slideInHorizontally(tween(260)) { -it / 12 } },
-            popExitTransition = { fadeOut(tween(160)) + slideOutHorizontally(tween(260)) { it / 12 } }
+            enterTransition = {
+                if (targetState.destination.route in PUSHED) slideInHorizontally(pushSpring) { it }
+                else fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f)
+            },
+            exitTransition = {
+                if (targetState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { -it / 4 } + fadeOut(tween(300), targetAlpha = 0.6f)
+                else fadeOut(tween(150))
+            },
+            popEnterTransition = {
+                if (initialState.destination.route in PUSHED) slideInHorizontally(pushSpring) { -it / 4 } + fadeIn(tween(300), initialAlpha = 0.6f)
+                else fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f)
+            },
+            popExitTransition = {
+                if (initialState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { it }
+                else fadeOut(tween(150))
+            }
         ) {
             composable(Routes.LOGIN) {
                 LoginScreen(vm,
@@ -192,6 +224,51 @@ fun AppNavHost(vm: SkillSwapViewModel) {
         NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
     }
     ConfettiOverlay(celebrate)
+    }
+}
+
+/** Screens that slide in like an iPhone "push"; everything else fades. */
+private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER)
+private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+
+/**
+ * A floating glass tab bar. The coloured capsule behind the selected tab slides with a spring,
+ * and the selected icon pops a little - the same feel as an iPhone tab bar.
+ */
+@Composable
+private fun GlassTabBar(currentRoute: String?, onSelect: (String) -> Unit) {
+    val selectedIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+    val shape = RoundedCornerShape(32.dp)
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().height(64.dp).shadow(18.dp, shape).clip(shape)
+                .background(glassFill()).border(BorderStroke(1.dp, glassBorder()), shape)
+        ) {
+            val itemWidth = maxWidth / tabs.size
+            val x by animateDpAsState(itemWidth * selectedIndex, spring(dampingRatio = 0.72f, stiffness = 380f), label = "tabCapsule")
+            Box(
+                Modifier.offset(x = x).width(itemWidth).fillMaxHeight().padding(6.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Brush.linearGradient(listOf(BrandStart, BrandEnd)))
+            )
+            Row(Modifier.fillMaxSize()) {
+                tabs.forEachIndexed { i, tab ->
+                    val selected = i == selectedIndex
+                    val pop by animateFloatAsState(if (selected) 1.15f else 1f, spring(dampingRatio = 0.45f, stiffness = 500f), label = "tabIcon")
+                    val tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight()
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(tab.route) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(tab.icon, contentDescription = tab.label, tint = tint,
+                            modifier = Modifier.size(22.dp).graphicsLayer { scaleX = pop; scaleY = pop })
+                        Text(tab.label, style = MaterialTheme.typography.labelSmall, color = tint)
+                    }
+                }
+            }
+        }
     }
 }
 
