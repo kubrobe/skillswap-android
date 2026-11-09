@@ -15,32 +15,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import uz.skillswap.app.R
 
-// SkillSwap brand: indigo and violet
-val BrandStart = Color(0xFF6857F5)
-val BrandEnd = Color(0xFF873BE8)
-val Lavender = Color(0xFFB39AFF)
+// SkillSwap brand: graphite + gold (serious, premium; gold = the credit coin)
+val BrandStart = Color(0xFF2B2E36)      // graphite - start of the header gradient
+val BrandEnd = Color(0xFF6E5420)        // dark gold - end of the header gradient
+val GoldPrimary = Color(0xFFE0B44C)     // buttons, selected tab, accents
+val GoldDeep = Color(0xFFB8892B)
+val Lavender = Color(0xFFF2D28B)        // light gold: "Upcoming" status (name kept for older code)
+val OnGold = Color(0xFF1A1407)          // dark text on gold, for strong contrast
 
 private val LightColors = lightColorScheme(
-    primary = BrandStart, onPrimary = Color.White,
-    primaryContainer = Color(0xFFE8E4FF), onPrimaryContainer = Color(0xFF3A2FB0),
-    secondary = BrandEnd, onSecondary = Color.White,
-    background = Color(0xFFF6F7FB), onBackground = Color(0xFF14162B),
-    surface = Color.White, onSurface = Color(0xFF14162B),
-    surfaceVariant = Color(0xFFECEEF8), onSurfaceVariant = Color(0xFF5B607A),
-    outline = Color(0xFFB9BED6), outlineVariant = Color(0xFFE1E4F2),
+    primary = GoldDeep, onPrimary = OnGold,
+    primaryContainer = Color(0xFFF6E7C1), onPrimaryContainer = Color(0xFF5A4310),
+    secondary = Color(0xFF8A6A22), onSecondary = Color.White,
+    background = Color(0xFFF7F6F2), onBackground = Color(0xFF1A1B1F),
+    surface = Color.White, onSurface = Color(0xFF1A1B1F),
+    surfaceVariant = Color(0xFFEFEDE7), onSurfaceVariant = Color(0xFF5E5A50),
+    outline = Color(0xFFC9C4B8), outlineVariant = Color(0xFFE6E2D8),
     surfaceContainer = Color.White, surfaceContainerHigh = Color.White,
     error = Color(0xFFDC2626)
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF6857F5), onPrimary = Color.White,
-    primaryContainer = Color(0xFF2A2650), onPrimaryContainer = Color(0xFFD9D2FF),
-    secondary = Lavender, onSecondary = Color(0xFF1B1140),
-    background = Color(0xFF0D0E1A), onBackground = Color(0xFFF4F3FF),
-    surface = Color(0xFF191B30), onSurface = Color(0xFFF4F3FF),
-    surfaceVariant = Color(0xFF20223A), onSurfaceVariant = Color(0xFFA6A8C2),
-    outline = Color(0xFF4A4E6B), outlineVariant = Color(0xFF2A2D47),
-    surfaceContainer = Color(0xFF15172A), surfaceContainerHigh = Color(0xFF20223A),
+    primary = GoldPrimary, onPrimary = OnGold,
+    primaryContainer = Color(0xFF3A3020), onPrimaryContainer = Color(0xFFF2D28B),
+    secondary = Color(0xFFF2D28B), onSecondary = OnGold,
+    background = Color(0xFF111317), onBackground = Color(0xFFF5F3EE),
+    surface = Color(0xFF1B1D23), onSurface = Color(0xFFF5F3EE),
+    surfaceVariant = Color(0xFF25272E), onSurfaceVariant = Color(0xFFA9A59B),
+    outline = Color(0xFF4A4A50), outlineVariant = Color(0xFF2C2E35),
+    surfaceContainer = Color(0xFF17191E), surfaceContainerHigh = Color(0xFF22242B),
     error = Color(0xFFEF5350)
 )
 

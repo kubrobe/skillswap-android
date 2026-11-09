@@ -52,6 +52,9 @@ import uz.skillswap.app.ui.components.glassBorder
 import uz.skillswap.app.ui.components.glassFill
 import uz.skillswap.app.ui.theme.BrandEnd
 import uz.skillswap.app.ui.theme.BrandStart
+import uz.skillswap.app.ui.theme.GoldDeep
+import uz.skillswap.app.ui.theme.GoldPrimary
+import uz.skillswap.app.ui.theme.OnGold
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -265,18 +268,18 @@ private fun GlassTabBar(hazeState: HazeState, currentRoute: String?, onSelect: (
     val lensShape = RoundedCornerShape(28.dp)
     val frost = remember(dark) {
         HazeStyle(
-            backgroundColor = if (dark) Color(0xFF0D0E1A) else Color(0xFFF6F7FB),
-            tints = listOf(HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.50f) else Color.White.copy(alpha = 0.60f))),
+            backgroundColor = if (dark) Color(0xFF111317) else Color(0xFFF7F6F2),
+            tints = listOf(HazeTint(if (dark) Color(0xFF1B1D23).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.60f))),
             blurRadius = 22.dp,
             noiseFactor = 0.05f,
-            fallbackTint = HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.95f))
+            fallbackTint = HazeTint(if (dark) Color(0xFF1B1D23).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.95f))
         )
     }
     val edge = remember(dark) {
         Brush.linearGradient(listOf(Color.White.copy(alpha = if (dark) 0.50f else 0.95f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = if (dark) 0.22f else 0.6f)))
     }
     val gloss = remember(dark) { Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.12f else 0.30f), Color.Transparent)) }
-    val lensFill = remember { Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.70f), BrandEnd.copy(alpha = 0.60f))) }
+    val lensFill = remember { Brush.linearGradient(listOf(GoldPrimary.copy(alpha = 0.92f), GoldDeep.copy(alpha = 0.85f))) }
     val lensGloss = remember { Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.Transparent)) }
     val lensEdge = remember { BorderStroke(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f)))) }
 
@@ -322,7 +325,7 @@ private fun GlassTabBar(hazeState: HazeState, currentRoute: String?, onSelect: (
 @Composable
 private fun TabItem(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val pop = animateFloatAsState(if (selected) 1.15f else 1f, spring(dampingRatio = 0.45f, stiffness = 520f), label = "tabIcon")
-    val tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    val tint = if (selected) OnGold else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
     Column(
         modifier.fillMaxHeight()
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),

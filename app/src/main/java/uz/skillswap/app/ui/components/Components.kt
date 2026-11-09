@@ -66,6 +66,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import uz.skillswap.app.ui.theme.BrandEnd
 import uz.skillswap.app.ui.theme.BrandStart
+import uz.skillswap.app.ui.theme.GoldDeep
+import uz.skillswap.app.ui.theme.GoldPrimary
 
 // ---- colours that carry meaning ----
 val Gold = Color(0xFFF2B84B)      // stars (warning colour of the palette)
@@ -163,15 +165,15 @@ fun glassBorder(): Brush =
 fun GlassBackground(modifier: Modifier = Modifier) {
     val dark = isSystemInDarkTheme()
     val base = MaterialTheme.colorScheme.background
-    val strength = if (dark) 0.58f else 0.40f
+    val strength = if (dark) 0.30f else 0.26f       // gold glows need less strength than purple
     Spacer(
         modifier.fillMaxSize().drawWithCache {
             val w = size.width
             val h = size.height
             val glows = listOf(
-                Triple(BrandStart, Offset(w * 0.22f, h * 0.18f), w * 0.85f),
-                Triple(BrandEnd, Offset(w * 0.85f, h * 0.55f), w * 0.80f),
-                Triple(Color(0xFF38BDF8), Offset(w * 0.35f, h * 0.92f), w * 0.70f)
+                Triple(GoldPrimary, Offset(w * 0.20f, h * 0.16f), w * 0.85f),     // warm gold
+                Triple(Color(0xFFB7791F), Offset(w * 0.88f, h * 0.55f), w * 0.75f),  // amber
+                Triple(Color(0xFF64748B), Offset(w * 0.30f, h * 0.94f), w * 0.75f)   // cool steel for depth
             ).map { (color, center, radius) ->
                 Triple(Brush.radialGradient(listOf(color.copy(alpha = strength), Color.Transparent), center, radius), center, radius)
             }
@@ -196,7 +198,7 @@ fun GradientHeader(modifier: Modifier = Modifier, content: @Composable ColumnSco
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.78f), BrandEnd.copy(alpha = 0.66f))))
+            .background(Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.88f), BrandEnd.copy(alpha = 0.80f))))
             .statusBarsPadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -268,7 +270,7 @@ fun Pill(
     selected: Boolean,
     onClick: () -> Unit,
     selectedBg: Color = MaterialTheme.colorScheme.primary,
-    selectedFg: Color = Color.White,
+    selectedFg: Color = MaterialTheme.colorScheme.onPrimary,
     idleBg: Color = glassFill(),
     idleFg: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
@@ -343,7 +345,7 @@ fun ConfettiOverlay(trigger: Int) {
     if (trigger == 0) return
     val progress = remember(trigger) { Animatable(0f) }
     LaunchedEffect(trigger) { progress.animateTo(1f, tween(1800, easing = LinearEasing)) }
-    val palette = listOf(BrandStart, BrandEnd, Gold, Green, Color(0xFFEC4899), Color(0xFF38BDF8))
+    val palette = listOf(GoldPrimary, GoldDeep, Gold, Green, Color(0xFFF5F3EE), Color(0xFF94A3B8))
     val pieces = remember(trigger) {
         List(80) {
             ConfettiPiece(
