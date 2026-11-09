@@ -1,5 +1,9 @@
 package uz.skillswap.app.ui
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.asSharedFlow
+import uz.skillswap.app.data.remote.Achievements
 import uz.skillswap.app.data.remote.TelegramStatus
 import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.data.remote.Galaxy
@@ -165,6 +169,31 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     fun saveLiked(skillIds: List<Long>) {
         val merged = uz.skillswap.app.util.mergeWants(wants.value, skillIds)
         if (merged.toSet() != wants.value.toSet()) setWants(merged) { }
+    }
+
+    // Badges + leaderboard. A badge unlocked since the last look plays the "Badge unlocked!" moment once.
+    private val _achievements = MutableStateFlow<Achievements?>(null)
+    val achievements: StateFlow<Achievements?> = _achievements.asStateFlow()
+    private val _badgeUnlocked = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val badgeUnlocked: SharedFlow<String> = _badgeUnlocked.asSharedFlow()
+
+    fun loadAchievements() = viewModelScope.launch {
+        val a = runCatching { repo.achievements() }.getOrNull() ?: return@launch
+        _achievements.value = a
+        val uid = currentUser.value?.id ?: return@launch
+        val unlocked = a.badges.filter { it.unlocked }.map { it.id }.toSet()
+        val seen = repo.seenBadges(uid)
+        if (seen != null) (unlocked - seen).forEach { _badgeUnlocked.tryEmit(it) }
+        repo.saveSeenBadges(uid, unlocked + (seen ?: emptySet()))
+    }
+
+    init {
+        // every fresh download may have unlocked something (my lesson, someone's 5-star review...)
+        viewModelScope.launch {
+            sync.map { it.lastSync }.distinctUntilChanged().collect { t ->
+                if (t > 0 && currentUser.value != null) loadAchievements()
+            }
+        }
     }
 
     // Telegram bot (Profile card)

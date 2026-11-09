@@ -296,6 +296,27 @@ open class Strings {
     open val telegramDisconnect = "Disconnect"
     open val telegramOff = "The bot is not set up on the server yet"
     open val telegramWaiting = "Tap Start in Telegram, then come back"
+
+    // ---- badges + leaderboard ----
+    open val achievementsTitle = "Achievements"
+    open fun unlockedOf(n: Int, total: Int) = "$n of $total unlocked"
+    open val badgeUnlocked = "Badge unlocked!"
+    open val topTeachers = "Top teachers"
+    open val thisWeek = "This week"
+    open val allTimeLabel = "All time"
+    open fun lessonsN(n: Int) = "$n lessons"
+    open val noOneYet = "No lessons this week yet — be the first!"
+    open fun badgeTitle(id: String) = when (id) {
+        "first_lesson" -> "First lesson"; "first_teach" -> "First class"; "mentor" -> "Mentor"
+        "five_star" -> "Five stars"; "trusted" -> "Trusted"; "explorer" -> "Explorer"
+        "perfect_swap" -> "Perfect swap"; "critic" -> "Critic"; else -> id
+    }
+    open fun badgeDesc(id: String) = when (id) {
+        "first_lesson" -> "Finish your first lesson"; "first_teach" -> "Teach your first lesson"
+        "mentor" -> "Teach 5 lessons"; "five_star" -> "Get a 5-star review"
+        "trusted" -> "2+ lessons rated 4.5 or more"; "explorer" -> "Learn 3 different skills"
+        "perfect_swap" -> "Teach someone who also teaches you"; "critic" -> "Rate 3 lessons"; else -> ""
+    }
 }
 
 object En : Strings()
@@ -554,6 +575,26 @@ object Uz : Strings() {
     override val telegramDisconnect = "Uzish"
     override val telegramOff = "Bot hali serverda sozlanmagan"
     override val telegramWaiting = "Telegramda Start ni bosing va qayting"
+
+    override val achievementsTitle = "Yutuqlar"
+    override fun unlockedOf(n: Int, total: Int) = "$total tadan $n tasi ochildi"
+    override val badgeUnlocked = "Yangi nishon!"
+    override val topTeachers = "Eng yaxshi ustozlar"
+    override val thisWeek = "Shu hafta"
+    override val allTimeLabel = "Hammasi"
+    override fun lessonsN(n: Int) = "$n dars"
+    override val noOneYet = "Bu hafta hali dars yoʻq — birinchi boʻling!"
+    override fun badgeTitle(id: String) = when (id) {
+        "first_lesson" -> "Birinchi dars"; "first_teach" -> "Birinchi mashgʻulot"; "mentor" -> "Ustoz"
+        "five_star" -> "Besh yulduz"; "trusted" -> "Ishonchli"; "explorer" -> "Kashfiyotchi"
+        "perfect_swap" -> "Ideal almashuv"; "critic" -> "Tanqidchi"; else -> id
+    }
+    override fun badgeDesc(id: String) = when (id) {
+        "first_lesson" -> "Birinchi darsingizni tugating"; "first_teach" -> "Birinchi darsingizni oʻtkazing"
+        "mentor" -> "5 ta dars oʻtkazing"; "five_star" -> "5 yulduzli baho oling"
+        "trusted" -> "2+ dars, bahosi 4.5 va undan yuqori"; "explorer" -> "3 xil koʻnikmani oʻrganing"
+        "perfect_swap" -> "Sizga oʻrgatgan odamga oʻzingiz ham oʻrgating"; "critic" -> "3 ta darsni baholang"; else -> ""
+    }
 }
 
 /** Русский. */
@@ -810,4 +851,24 @@ object Ru : Strings() {
     override val telegramDisconnect = "Отключить"
     override val telegramOff = "Бот ещё не настроен на сервере"
     override val telegramWaiting = "Нажмите Start в Telegram и вернитесь"
+
+    override val achievementsTitle = "Достижения"
+    override fun unlockedOf(n: Int, total: Int) = "Открыто: $n из $total"
+    override val badgeUnlocked = "Новый значок!"
+    override val topTeachers = "Лучшие учителя"
+    override val thisWeek = "Эта неделя"
+    override val allTimeLabel = "За всё время"
+    override fun lessonsN(n: Int) = "уроков: $n"
+    override val noOneYet = "На этой неделе уроков ещё нет — будьте первым!"
+    override fun badgeTitle(id: String) = when (id) {
+        "first_lesson" -> "Первый урок"; "first_teach" -> "Первое занятие"; "mentor" -> "Наставник"
+        "five_star" -> "Пять звёзд"; "trusted" -> "Проверенный"; "explorer" -> "Исследователь"
+        "perfect_swap" -> "Идеальный обмен"; "critic" -> "Критик"; else -> id
+    }
+    override fun badgeDesc(id: String) = when (id) {
+        "first_lesson" -> "Завершите первый урок"; "first_teach" -> "Проведите первый урок"
+        "mentor" -> "Проведите 5 уроков"; "five_star" -> "Получите оценку 5 звёзд"
+        "trusted" -> "2+ урока с оценкой от 4.5"; "explorer" -> "Изучите 3 разных навыка"
+        "perfect_swap" -> "Учите того, кто учит вас"; "critic" -> "Оцените 3 урока"; else -> ""
+    }
 }

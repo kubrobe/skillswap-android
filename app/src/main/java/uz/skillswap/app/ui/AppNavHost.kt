@@ -97,7 +97,9 @@ import kotlin.math.roundToInt
 import uz.skillswap.app.ui.components.ConfettiOverlay
 import uz.skillswap.app.ui.components.NoticeCard
 import uz.skillswap.app.ui.screens.DetailScreen
+import uz.skillswap.app.ui.screens.AchievementsScreen
 import uz.skillswap.app.ui.screens.AskScreen
+import uz.skillswap.app.ui.components.BadgeUnlockedOverlay
 import uz.skillswap.app.ui.screens.GalaxyScreen
 import uz.skillswap.app.ui.screens.HomeScreen
 import uz.skillswap.app.ui.screens.ImpactScreen
@@ -122,6 +124,7 @@ object Routes {
     const val IMPACT = "impact"
     const val GALAXY = "galaxy"
     const val ASK = "ask"
+    const val ACHIEVEMENTS = "achievements"
     fun detail(id: Long) = "detail/$id"
 }
 
@@ -249,7 +252,10 @@ fun AppNavHost(vm: SkillSwapViewModel) {
             composable(Routes.PROFILE) {
                 ProfileScreen(vm, onLoggedOut = {
                     nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
-                }, onImpact = { nav.navigate(Routes.IMPACT) })
+                }, onImpact = { nav.navigate(Routes.IMPACT) }, onAchievements = { nav.navigate(Routes.ACHIEVEMENTS) })
+            }
+            composable(Routes.ACHIEVEMENTS) {
+                AchievementsScreen(vm, onBack = { nav.popBackStack() })
             }
         }
     }
@@ -282,12 +288,13 @@ fun AppNavHost(vm: SkillSwapViewModel) {
         NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
     }
     CoinFlyOverlay(vm.coins)
+    BadgeUnlockedOverlay(vm.badgeUnlocked, onShown = { vm.celebrate() })
     ConfettiOverlay(celebrate)
     }
 }
 
 /** Screens that slide in like an iPhone "push"; everything else fades. */
-private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT, Routes.GALAXY)
+private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT, Routes.GALAXY, Routes.ACHIEVEMENTS)
 /** Screens that slide up from the bottom like an iPhone sheet. */
 private val MODAL = setOf(Routes.SWIPE, Routes.ASK)
 private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)

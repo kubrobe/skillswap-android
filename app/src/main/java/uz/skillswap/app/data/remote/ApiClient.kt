@@ -49,6 +49,13 @@ class Impact(
 class WeekCount(val week: String, val lessons: Int)       // week = Monday, "2026-11-02"
 class TopSkill(val name: String, val emoji: String, val lessons: Int)
 
+/** One badge: unlocked when progress reaches goal. The id is fixed; the app shows its name in the user's language. */
+class Badge(val id: String, val progress: Int, val goal: Int) {
+    val unlocked: Boolean get() = progress >= goal
+}
+class LeaderRow(val id: Long, val name: String, val lessons: Int, val rating: Double, val emoji: String)
+class Achievements(val badges: List<Badge>, val week: List<LeaderRow>, val allTime: List<LeaderRow>, val me: Long)
+
 /** Telegram bot: is it set up on the server, and is this account linked to a chat. */
 class TelegramStatus(val configured: Boolean, val linked: Boolean)
 
@@ -166,6 +173,23 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
             topSkills = (o.optJSONArray("topSkills") ?: JSONArray()).objects().map {
                 TopSkill(it.optString("name"), it.optString("emoji", "🎓"), it.optInt("lessons"))
             }
+        )
+    }
+
+    /** My badges and the top teachers this week / all time. */
+    suspend fun achievements(token: String): Achievements {
+        val o = request("GET", "/achievements", token)
+        fun board(a: JSONArray?) = (a ?: JSONArray()).objects().map {
+            LeaderRow(it.getLong("id"), it.optString("name"), it.optInt("lessons"), it.optDouble("rating", 0.0),
+                if (it.isNull("emoji")) "🎓" else it.optString("emoji", "🎓"))
+        }
+        return Achievements(
+            badges = (o.optJSONArray("badges") ?: JSONArray()).objects().map {
+                Badge(it.getString("id"), it.optInt("progress"), it.optInt("goal", 1))
+            },
+            week = board(o.optJSONArray("week")),
+            allTime = board(o.optJSONArray("allTime")),
+            me = o.optLong("me")
         )
     }
 

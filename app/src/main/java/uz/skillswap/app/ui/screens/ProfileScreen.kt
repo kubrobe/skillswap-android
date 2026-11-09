@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.BadgeCircle
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalUriHandler
@@ -66,7 +67,7 @@ import uz.skillswap.app.util.nextLevelTarget
 import uz.skillswap.app.util.weightedRating
 
 @Composable
-fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () -> Unit) {
+fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () -> Unit, onAchievements: () -> Unit) {
     val user by vm.currentUser.collectAsStateWithLifecycle()
     val learning by vm.learning.collectAsStateWithLifecycle()
     val teaching by vm.teaching.collectAsStateWithLifecycle()
@@ -76,6 +77,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
     val name = user?.fullName ?: ""
     val tr = LocalStrings.current
     val lang by vm.lang.collectAsStateWithLifecycle()
+    val achievements by vm.achievements.collectAsStateWithLifecycle()
 
     val learned = learning.count { it.status == STATUS_DONE }
     val taught = teaching.count { it.status == STATUS_DONE }
@@ -182,6 +184,29 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                                 Text(walletLabel(h, tr), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                                 Text(if (h.amount > 0) "+${h.amount}" else "${h.amount}",
                                     style = MaterialTheme.typography.labelLarge, color = if (h.amount > 0) Green else Red)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // my badges at a glance
+            AppCard(Modifier.fillMaxWidth(), onClick = onAchievements) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val badges = achievements?.badges.orEmpty()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🏅", fontSize = 28.sp)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(tr.achievementsTitle, style = MaterialTheme.typography.titleMedium)
+                            Text(tr.unlockedOf(badges.count { it.unlocked }, badges.size),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("›", style = MaterialTheme.typography.headlineSmall, color = Gold)
+                    }
+                    if (badges.isNotEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            badges.sortedByDescending { it.unlocked }.take(5).forEach { b ->
+                                BadgeCircle(b.id, b.progress, b.goal, size = 44.dp)
                             }
                         }
                     }

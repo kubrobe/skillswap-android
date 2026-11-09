@@ -285,6 +285,13 @@ class SkillSwapRepository(
     fun savedLanguage(): String? = prefs.getString(KEY_LANG, null)
     fun saveLanguage(code: String) = prefs.edit().putString(KEY_LANG, code).apply()
 
+    // ---------- badges ----------
+    suspend fun achievements() = api.achievements(requireToken())
+
+    /** Badges this phone already celebrated for a user; null = never stored (first start: no fanfare). */
+    fun seenBadges(userId: Long): Set<String>? = prefs.getStringSet("badges_$userId", null)?.toSet()
+    fun saveSeenBadges(userId: Long, ids: Set<String>) = prefs.edit().putStringSet("badges_$userId", ids).apply()
+
     // ---------- Telegram bot ----------
     private fun requireToken(): String = token ?: throw IllegalStateException("Please log in first")
     suspend fun telegramStatus() = api.telegramStatus(requireToken())

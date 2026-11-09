@@ -11,6 +11,7 @@ import uz.skillswap.app.ui.i18n.En
 import uz.skillswap.app.ui.i18n.Lang
 import uz.skillswap.app.ui.i18n.Ru
 import uz.skillswap.app.ui.i18n.Uz
+import uz.skillswap.app.ui.components.badgeEmoji
 import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.buildDeck
 import uz.skillswap.app.util.formatUzs
@@ -157,5 +158,16 @@ class UtilsTest {
         assertEquals("Boshlangʻich", Uz.level("Beginner"))
         assertEquals("Beginner", En.level("Beginner"))     // stored value stays English
         assertEquals("5 мин назад", Ru.ago(10 * 60_000L, 5 * 60_000L))
+    }
+
+    @Test fun badges_haveAPictureAndANameInEveryLanguage() {
+        val ids = listOf("first_lesson", "first_teach", "mentor", "five_star", "trusted", "explorer", "perfect_swap", "critic")
+        assertEquals(ids.size, ids.map { badgeEmoji(it) }.toSet().size)        // every badge looks different
+        for (id in ids) {
+            assertNotEquals(id, En.badgeTitle(id))                             // a real name, not the id
+            assertNotEquals(En.badgeTitle(id), Uz.badgeTitle(id))
+            assertNotEquals(En.badgeTitle(id), Ru.badgeTitle(id))
+            assertTrue(Ru.badgeDesc(id).isNotBlank())
+        }
     }
 }

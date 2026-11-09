@@ -3,10 +3,10 @@
 Trade skills, not bills. Students teach a skill they know and book lessons from other students.
 Kotlin + Jetpack Compose (Material 3) + Room (SQLite cache) + MVVM. Always online: one Supabase database shared with the website.
 
-## Screens (9)
-Login · Register · Browse (search + category filter, LIVE ticker, perfect matches) · Swipe to swap ·
-Offer detail (times + reviews) · My lessons (I learn / I teach, upcoming + history, check-in, cancel, rate) ·
-Teach (publish a listing) · Profile (stats, reputation, member level, time bank, language) · Community impact
+## Screens (12)
+Login · Register · Browse (search, categories, LIVE ticker, perfect matches) · Swipe to swap · Ask SkillSwap (voice) ·
+Offer detail (times + reviews) · My lessons (I learn / I teach, check-in, cancel, rate) · Teach (publish a listing) ·
+Profile (stats, level, time bank, badges, Telegram, language) · Community impact · Skill Galaxy · Achievements
 
 ## Database (6 tables, with relations)
 users · skills · offers (user→skill) · time_slots (→offer) · bookings (→user, slot, offer) · reviews (→booking)
@@ -53,6 +53,13 @@ The app talks to the same Express + PostgreSQL server as the website:
 * 🌍 **Community impact**: lessons, hours, credits, rating, weekly chart with growth, top skills and an
   estimated "money saved" (lessons × average tutor price, labelled as an estimate).
 * 🌐 **English · Oʻzbekcha · Русский**: switch on Login or Profile, the whole app changes at once.
+* 🌌 **Skill Galaxy**: the community as a live star map — people are stars, lessons are curved lines with gold
+  sparks flowing from teacher to learner; a force simulation lays it out on screen; a new lesson fires a comet.
+* 🎙️ **Voice AI matchmaker**: say "gitara o'rganmoqchiman, dam olish kunlari" → the 3 best lessons with reasons
+  (Claude when the server has `ANTHROPIC_API_KEY`, a three-language keyword matcher otherwise).
+* ✈️ **Telegram bot**: booking alerts, a reminder 1 hour before each lesson, `/next`, `/credits` (Profile → Connect Telegram).
+* 🏅 **Badges + leaderboard**: 8 badges from real lessons with a "Badge unlocked!" moment; top teachers this week
+  and all time on an animated podium.
 
 ## Demo account
 aziza@demo.uz / demo12345 (others: bobur@, dilnoza@, jasur@, nilufar@, kamola@, timur@demo.uz — same password).
@@ -61,5 +68,5 @@ The same accounts work on the website. Sample data lives in Supabase (db/09_samp
 ## Run
 1. Android Studio → File → Open → choose this folder (the one with settings.gradle.kts).
 2. Wait for Gradle sync, press the green Run button.
-3. Tests (17 unit tests): right-click `app/src/test/.../UtilsTest.kt` → Run.
+3. Tests (18 unit tests): right-click `app/src/test/.../UtilsTest.kt` → Run.
 4. Release APK: Build → Generate Signed App Bundle / APK → APK → release.
