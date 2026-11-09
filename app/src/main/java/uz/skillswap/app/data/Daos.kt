@@ -80,30 +80,7 @@ abstract class OfferDao {
            FROM reviews r WHERE r.offerId = :offerId ORDER BY r.createdAt DESC"""
     )
     abstract fun observeReviews(offerId: Long): Flow<List<ReviewLine>>
-
-    @Query("SELECT COUNT(*) FROM offers WHERE userId = :userId AND skillId = :skillId")
-    protected abstract suspend fun countMine(userId: Long, skillId: Long): Int
-
-    @Insert
-    protected abstract suspend fun insertOffer(offer: Offer): Long
-
-    @Insert
-    protected abstract suspend fun insertSlots(slots: List<TimeSlot>)
-
-    /** Publish a listing: the offer AND its time slots are saved together, or nothing is saved. */
-    @Transaction
-    open suspend fun createOffer(
-        userId: Long, skillId: Long, level: String, description: String, slots: List<Pair<Int, Int>>
-    ): Long {
-        require(slots.isNotEmpty()) { "Add at least one time slot" }
-        if (countMine(userId, skillId) > 0) throw IllegalStateException("You already teach this skill")
-        val offerId = insertOffer(Offer(userId = userId, skillId = skillId, level = level, description = description))
-        insertSlots(slots.distinct().map { TimeSlot(offerId = offerId, day = it.first, hour = it.second) })
-        return offerId
-    }
 }
-
-class SlotTakenException : Exception("Sorry, this time was just booked by someone else")
 
 // The SELECT part shared by "I learn" and "I teach"
 private const val BOOKING_SELECT = """
@@ -127,88 +104,5 @@ abstract class BookingDao {
 
     @Query(BOOKING_SELECT + " WHERE o.userId = :userId ORDER BY b.createdAt DESC")
     abstract fun observeTeaching(userId: Long): Flow<List<BookingLine>>
-
-    @Query("SELECT * FROM time_slots WHERE id = :id")
-    protected abstract suspend fun slot(id: Long): TimeSlot?
-
-    @Query("SELECT userId FROM offers WHERE id = :offerId")
-    protected abstract suspend fun teacherOf(offerId: Long): Long
-
-    // returns the number of changed rows: 0 means "somebody else already took this slot"
-    @Query("UPDATE time_slots SET isBooked = 1 WHERE id = :id AND isBooked = 0")
-    protected abstract suspend fun takeSlot(id: Long): Int
-
-    @Query("UPDATE time_slots SET isBooked = 0 WHERE id = :id")
-    protected abstract suspend fun freeSlot(id: Long)
-
-    // does this learner already have a lesson at the same weekday and hour?
-    @Query(
-        """SELECT COUNT(*) FROM bookings b JOIN time_slots t ON t.id = b.slotId
-           WHERE b.learnerId = :learnerId AND b.status = 'BOOKED' AND t.day = :day AND t.hour = :hour"""
-    )
-    protected abstract suspend fun clashes(learnerId: Long, day: Int, hour: Int): Int
-
-    @Insert
-    protected abstract suspend fun insertBooking(booking: Booking): Long
-
-    @Query("SELECT * FROM bookings WHERE id = :id")
-    protected abstract suspend fun booking(id: Long): Booking?
-
-    @Query("UPDATE bookings SET status = :status WHERE id = :id")
-    protected abstract suspend fun setStatus(id: Long, status: String)
-
-    @Query("SELECT COUNT(*) FROM reviews WHERE bookingId = :bookingId")
-    protected abstract suspend fun reviewCount(bookingId: Long): Int
-
-    @Insert
-    protected abstract suspend fun insertReview(review: Review): Long
-
-    /** Book a time slot: ALL steps succeed, or (if an exception is thrown) NOTHING is saved. */
-    @Transaction
-    open suspend fun book(learnerId: Long, slotId: Long): Long {
-        val slot = slot(slotId) ?: throw IllegalArgumentException("This time does not exist any more")
-        if (teacherOf(slot.offerId) == learnerId) throw IllegalStateException("You cannot book your own lesson")
-        if (clashes(learnerId, slot.day, slot.hour) > 0) {
-            throw IllegalStateException("You already have a lesson at this time")
-        }
-        if (takeSlot(slotId) == 0) throw SlotTakenException()       // rolls back everything
-        return insertBooking(Booking(learnerId = learnerId, slotId = slotId, offerId = slot.offerId))
-    }
-
-    @Query("SELECT fullName FROM users WHERE id = :id")
-    protected abstract suspend fun userName(id: Long): String?
-
-    /** Cancel a lesson (the learner OR the teacher may do it) and make the time free again. */
-    @Transaction
-    open suspend fun cancel(userId: Long, bookingId: Long) {
-        val b = booking(bookingId)
-        if (b == null || (b.learnerId != userId && teacherOf(b.offerId) != userId)) {
-            throw IllegalArgumentException("Booking not found")
-        }
-        if (b.status != STATUS_BOOKED) throw IllegalStateException("Only a planned lesson can be cancelled")
-        setStatus(bookingId, STATUS_CANCELLED)
-        freeSlot(b.slotId)
-    }
-
-    @Transaction
-    open suspend fun complete(userId: Long, bookingId: Long) {
-        val b = booking(bookingId)
-        if (b == null || b.learnerId != userId) throw IllegalArgumentException("Booking not found")
-        if (b.status != STATUS_BOOKED) throw IllegalStateException("Only a planned lesson can be marked as done")
-        setStatus(bookingId, STATUS_DONE)
-        freeSlot(b.slotId)          // a WEEKLY time: after the lesson it is free for the next learner
-    }
-
-    /** Only the learner, only after the lesson is DONE, and only once per lesson. */
-    @Transaction
-    open suspend fun addReview(userId: Long, bookingId: Long, rating: Int, comment: String): Long {
-        val b = booking(bookingId)
-        if (b == null || b.learnerId != userId) throw IllegalArgumentException("Booking not found")
-        if (b.status != STATUS_DONE) throw IllegalStateException("You can rate a lesson after it is done")
-        if (reviewCount(bookingId) > 0) throw IllegalStateException("You already rated this lesson")
-        require(rating in 1..5) { "Rating must be from 1 to 5" }
-        val firstName = userName(userId)?.substringBefore(' ') ?: "Learner"
-        return insertReview(Review(bookingId = bookingId, offerId = b.offerId, learnerName = firstName,
-            rating = rating, comment = comment.trim()))
-    }
 }
+

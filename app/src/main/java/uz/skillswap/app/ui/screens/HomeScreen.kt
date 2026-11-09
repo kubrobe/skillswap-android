@@ -38,7 +38,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -61,9 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
 import uz.skillswap.app.data.OfferCard
-import uz.skillswap.app.data.SyncState
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.EmojiTile
 import uz.skillswap.app.ui.components.EmptyState
@@ -75,7 +72,6 @@ import uz.skillswap.app.ui.components.Pill
 import uz.skillswap.app.ui.components.Red
 import uz.skillswap.app.ui.components.SmallPill
 import uz.skillswap.app.ui.components.StaggerIn
-import uz.skillswap.app.util.syncAgeText
 
 @Composable
 fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
@@ -84,7 +80,6 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
     val query by vm.query.collectAsStateWithLifecycle()
     val selected by vm.category.collectAsStateWithLifecycle()
     val user by vm.currentUser.collectAsStateWithLifecycle()
-    val sync by vm.sync.collectAsStateWithLifecycle()
     val wallet by vm.wallet.collectAsStateWithLifecycle()
     val wants by vm.wants.collectAsStateWithLifecycle()
     val matches by vm.matches.collectAsStateWithLifecycle()
@@ -102,8 +97,6 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
                 }
                 Text("What do you want to learn today?", style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.85f))
-                Spacer(Modifier.height(8.dp))
-                SyncStatus(sync, onRefresh = { vm.refresh() })
                 Spacer(Modifier.height(12.dp))
                 TextField(
                     value = query,
@@ -139,13 +132,11 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit) {
                 items(categories) { c -> Pill(c, selected == c, { vm.category.value = c }) }
             }
         }
-        if (sync.online) {
-            item {
-                MatchesSection(
-                    matches = matches, hasWants = wants.isNotEmpty(),
-                    onOpen = onOfferClick, onEditWants = { editingWants = true }
-                )
-            }
+        item {
+            MatchesSection(
+                matches = matches, hasWants = wants.isNotEmpty(),
+                onOpen = onOfferClick, onEditWants = { editingWants = true }
+            )
         }
         item {
             Text(
@@ -193,44 +184,6 @@ fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
                 Text(ratingText(offer), style = MaterialTheme.typography.labelMedium,
                     color = if (offer.reviewCount == 0) MaterialTheme.colorScheme.onSurfaceVariant else Gold,
                     fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-/** Small pill: is this data live from the server, saved data (offline), or a phone-only demo? Tap = refresh. */
-@Composable
-private fun SyncStatus(state: SyncState, onRefresh: () -> Unit) {
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(state.lastSync) {
-        while (true) {                       // keep "updated 3 min ago" fresh
-            now = System.currentTimeMillis()
-            delay(30_000)
-        }
-    }
-    val (dot, text) = when {
-        !state.online -> Color(0xFFFFD166) to "On this phone only (offline demo)"
-        state.syncing -> Color.White to "Syncing with the server…"
-        state.problem != null -> Color(0xFFFFB4A9) to "Offline · showing saved data"
-        else -> Color(0xFF7CF5B5) to "Live · updated ${syncAgeText(now, state.lastSync)}"
-    }
-    Row(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.18f))
-            .clickable(enabled = state.online && !state.syncing, onClick = onRefresh)
-            .padding(start = 12.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
-        Text(text, style = MaterialTheme.typography.labelMedium, color = Color.White,
-            modifier = Modifier.padding(horizontal = 8.dp))
-        if (state.online) {
-            if (state.syncing) {
-                CircularProgressIndicator(Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
-            } else {
-                Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White,
-                    modifier = Modifier.size(16.dp))
             }
         }
     }

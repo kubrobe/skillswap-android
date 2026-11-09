@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [User::class, Skill::class, Offer::class, TimeSlot::class, Booking::class, Review::class],
-    version = 3,              // 3: reviews belong to offers (privacy); 2: demo password demo12345
+    version = 4,              // 4: online-only, Room is a cache of the server; 3: reviews belong to offers
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

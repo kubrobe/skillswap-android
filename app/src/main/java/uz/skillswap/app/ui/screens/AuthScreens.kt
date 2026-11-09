@@ -78,7 +78,7 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
         }
         Text("Demo account: aziza@demo.uz / demo12345", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Same account as on the website. Works offline too.", style = MaterialTheme.typography.bodySmall,
+        Text("Same account as on the SkillSwap website.", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

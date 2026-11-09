@@ -17,7 +17,6 @@ import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.OfflineException
 import uz.skillswap.app.data.remote.Snapshot
 import uz.skillswap.app.data.remote.Wallet
-import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.TokenCipher
 import uz.skillswap.app.util.Validators
 
@@ -32,11 +31,10 @@ data class SyncState(
 /**
  * The single place that talks to data. Screens never use DAOs or the network directly.
  *
- * Two kinds of account:
- *  - ONLINE account (has a server token): every change goes to the server first, then the
- *    phone downloads a fresh copy into Room. Same account works on the website.
- *  - PHONE account (no token, e.g. offline demo): everything stays in Room on this phone.
- * The screens always read from Room, so they work the same way in both cases, even without internet.
+ * The app is always online: Supabase (through our server) is the ONLY source of truth.
+ * Every change goes to the server first, then the phone downloads a fresh copy into Room.
+ * Room is just a cache, so the screens are instant and update by themselves.
+ * The same account works on the website.
  */
 class SkillSwapRepository(
     private val db: AppDatabase,
@@ -91,33 +89,13 @@ class SkillSwapRepository(
     }
 
     // ---------- start-up ----------
-    suspend fun seedIfEmpty() {
-        if (db.skillDao().count() > 0) return
-        val skillIds = SampleData.skills.associate { it.name to db.skillDao().insert(it) }
-        val userIds = SampleData.users.associate { it.email to db.userDao().insert(it) }
-        val offerIds = HashMap<String, Long>()
-        for (o in SampleData.offers) {
-            offerIds["${o.teacherEmail}|${o.skill}"] = db.offerDao().createOffer(
-                userIds.getValue(o.teacherEmail), skillIds.getValue(o.skill), o.level, o.description, o.slots
-            )
-        }
-        for (l in SampleData.lessons) {
-            val offerId = offerIds.getValue("${l.teacherEmail}|${l.skill}")
-            val slot = db.offerDao().slotsOf(offerId)[l.slotIndex]
-            val learnerId = userIds.getValue(l.learnerEmail)
-            val bookingId = db.bookingDao().book(learnerId, slot.id)
-            db.bookingDao().complete(learnerId, bookingId)
-            db.bookingDao().addReview(learnerId, bookingId, l.rating, l.comment)
-        }
-    }
-
     suspend fun restoreSession() {
+        if (token == null) return                       // not logged in
+        _sync.value = SyncState(online = true, lastSync = prefs.getLong(KEY_LAST_SYNC, 0L))
+        _wallet.value = Wallet(prefs.getInt(KEY_BALANCE, 0), emptyList())    // until the first sync
         val id = prefs.getLong(KEY_USER_ID, -1)
         if (id > 0) _currentUser.value = db.userDao().findById(id)
-        if (token != null) {
-            _sync.value = SyncState(online = true, lastSync = prefs.getLong(KEY_LAST_SYNC, 0L))
-            _wallet.value = Wallet(prefs.getInt(KEY_BALANCE, 0), emptyList())    // until the first sync
-        }
+        if (_currentUser.value == null) refresh()      // empty cache (first start after an update): download now
     }
 
     /** Download a fresh copy from the server. Safe to call any time; problems end up in [sync]. */
@@ -174,7 +152,7 @@ class SkillSwapRepository(
         } catch (e: ApiException) {
             Result.failure(e)
         } catch (e: OfflineException) {
-            registerOnPhone(fullName.trim(), mail, password)     // no internet: keep working on the phone
+            Result.failure(e)
         }
     }
 
@@ -183,11 +161,9 @@ class SkillSwapRepository(
         return try {
             Result.success(startOnlineSession(api.login(mail, password)))
         } catch (e: ApiException) {
-            // 401 = not a server account; it may be an account that exists only on this phone
-            if (e.status == 401) loginOnPhone(mail, password) ?: Result.failure(e) else Result.failure(e)
+            Result.failure(e)
         } catch (e: OfflineException) {
-            loginOnPhone(mail, password)
-                ?: Result.failure(IllegalStateException("No internet, and this account is not saved on this phone"))
+            Result.failure(e)
         }
     }
 
@@ -200,46 +176,20 @@ class SkillSwapRepository(
         return _currentUser.value ?: auth.user
     }
 
-    private suspend fun loginOnPhone(mail: String, password: String): Result<User>? {
-        val user = db.userDao().findByEmail(mail) ?: return null
-        if (user.passwordHash.isEmpty() || user.passwordHash != Security.hashPassword(password, mail)) return null
-        startPhoneSession(user)
-        return Result.success(user)
-    }
-
-    private suspend fun registerOnPhone(fullName: String, mail: String, password: String): Result<User> {
-        if (db.userDao().findByEmail(mail) != null) {
-            return Result.failure(IllegalArgumentException("This e-mail is already registered"))
-        }
-        val user = User(fullName = fullName, email = mail, passwordHash = Security.hashPassword(password, mail))
-        val saved = user.copy(id = db.userDao().insert(user))
-        startPhoneSession(saved)
-        return Result.success(saved)
-    }
-
-    private fun startPhoneSession(user: User) {
-        saveToken(null)
-        prefs.edit().putLong(KEY_USER_ID, user.id).apply()
-        _sync.value = SyncState(online = false)
-        _currentUser.value = user
-    }
-
     suspend fun updateProfile(name: String, bio: String): Result<Unit> {
         if (name.trim().length < 2) return Result.failure(IllegalArgumentException("Name is too short"))
         val id = requireUserId()
-        val t = token
-        if (t != null) {
-            try {
-                api.updateProfile(t, name.trim(), bio.trim())
-            } catch (e: ApiException) {
-                if (e.status == 401) {
-                    expireSession()
-                    return Result.failure(IllegalStateException(SESSION_EXPIRED))
-                }
-                return Result.failure(e)
-            } catch (e: OfflineException) {
-                return Result.failure(e)
+        val t = token ?: return Result.failure(IllegalStateException("Please log in first"))
+        try {
+            api.updateProfile(t, name.trim(), bio.trim())
+        } catch (e: ApiException) {
+            if (e.status == 401) {
+                expireSession()
+                return Result.failure(IllegalStateException(SESSION_EXPIRED))
             }
+            return Result.failure(e)
+        } catch (e: OfflineException) {
+            return Result.failure(e)
         }
         db.userDao().updateProfile(id, name.trim(), bio.trim())
         _currentUser.value = db.userDao().findById(id)
@@ -250,10 +200,8 @@ class SkillSwapRepository(
         val t = token
         if (t != null) {
             try { api.logout(t) } catch (e: Exception) { /* offline: the server session simply expires */ }
-            // forget the downloaded data and bring back the offline demo
-            db.syncDao().clearAll()
-            seedIfEmpty()
         }
+        db.syncDao().clearAll()                          // forget the downloaded copy
         saveToken(null)
         prefs.edit().remove(KEY_USER_ID).remove(KEY_LAST_SYNC).remove(KEY_BALANCE).apply()
         _sync.value = SyncState()
@@ -282,33 +230,25 @@ class SkillSwapRepository(
     fun learning(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeLearning(userId)
     fun teaching(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeTeaching(userId)
 
-    // ---------- changes: server first when online, otherwise Room on the phone ----------
+    // ---------- changes: always on the server (it checks every rule in a transaction) ----------
     suspend fun createOffer(skillId: Long, level: String, description: String, slots: List<Pair<Int, Int>>): Long =
         onServer { api.publishOffer(it, skillId, level, description.trim(), slots) }
-            ?: db.offerDao().createOffer(requireUserId(), skillId, level, description.trim(), slots)
 
-    suspend fun book(slotId: Long): Long =
-        onServer { api.book(it, slotId) } ?: db.bookingDao().book(requireUserId(), slotId)
+    suspend fun book(slotId: Long): Long = onServer { api.book(it, slotId) }
 
-    suspend fun cancel(bookingId: Long) {
-        onServer { api.cancel(it, bookingId) } ?: db.bookingDao().cancel(requireUserId(), bookingId)
-    }
+    suspend fun cancel(bookingId: Long) = onServer { api.cancel(it, bookingId) }
 
-    suspend fun complete(bookingId: Long) {
-        onServer { api.complete(it, bookingId) } ?: db.bookingDao().complete(requireUserId(), bookingId)
-    }
+    suspend fun complete(bookingId: Long) = onServer { api.complete(it, bookingId) }
 
     suspend fun review(bookingId: Long, rating: Int, comment: String): Long =
         onServer { api.review(it, bookingId, rating, comment) }
-            ?: db.bookingDao().addReview(requireUserId(), bookingId, rating, comment)
 
     /**
-     * Online account: run [action] on the server, then download the fresh data and return the result.
-     * Phone account: returns null, so the caller does the change in Room instead.
+     * Run [action] on the server, then download the fresh data and return the result.
      * Server errors (e.g. "this time was just booked") are thrown and shown on screen.
      */
-    private suspend fun <T> onServer(action: suspend (String) -> T): T? {
-        val t = token ?: return null
+    private suspend fun <T> onServer(action: suspend (String) -> T): T {
+        val t = token ?: throw IllegalStateException("Please log in first")
         requireUserId()
         val result = try {
             action(t)
@@ -327,14 +267,11 @@ class SkillSwapRepository(
     // ---------- hackathon features (online accounts) ----------
 
     /** Save "what I want to learn"; the server then finds perfect matches. */
-    suspend fun setWants(skillIds: List<Long>) {
-        onServer { api.setWants(it, skillIds) }
-            ?: throw IllegalStateException("Matches need an online account. Log in with internet.")
-    }
+    suspend fun setWants(skillIds: List<Long>) = onServer { api.setWants(it, skillIds) }
 
     /** A 60-minute plan for a booked lesson: (plan, "ai" or "template"). */
     suspend fun lessonPlan(bookingId: Long): Pair<String, String> {
-        val t = token ?: throw IllegalStateException("Lesson plans need an online account.")
+        val t = token ?: throw IllegalStateException("Please log in first")
         return api.lessonPlan(t, bookingId)
     }
 
@@ -350,7 +287,10 @@ class SkillSwapRepository(
             try {
                 api.listen(t) { type, data ->
                     when (type) {
-                        "hello" -> { wait = 2_000L }
+                        "hello" -> {
+                            wait = 2_000L
+                            if (_sync.value.problem != null) refresh()     // back online: clear the problem
+                        }
                         "notice" -> { _notices.tryEmit(data.optString("text")) }
                         "changed" -> refresh()
                     }

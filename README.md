@@ -1,7 +1,7 @@
 # SkillSwap (Android)
 
 Trade skills, not bills. Students teach a skill they know and book lessons from other students.
-Kotlin + Jetpack Compose (Material 3) + Room (SQLite) + MVVM. Works fully offline.
+Kotlin + Jetpack Compose (Material 3) + Room (SQLite cache) + MVVM. Always online: one Supabase database shared with the website.
 
 ## Screens (7)
 Login · Register · Browse (search + category filter) · Offer detail (times + reviews) ·
@@ -32,11 +32,11 @@ The app talks to the same Express + PostgreSQL server as the website:
 
 * Login returns a session token; the app sends `Authorization: Bearer <token>`.
 * `GET /sync` downloads everything; the app writes it into Room in **one transaction** (`SyncDao.replaceAll`).
-* Screens always read from Room, so the app keeps working **offline** with the last saved data.
+* Room is only a cache of the server data: screens read from it, so they are instant and update by themselves.
 * Changes (book, cancel, done, rate, publish, edit profile) go to the server first, then the app re-syncs.
   The server checks all rules inside PostgreSQL transactions, so two phones can never book the same slot.
 * No extra libraries: `HttpURLConnection` + `org.json` (both built into Android), calls run on `Dispatchers.IO`.
-* Without internet, login falls back to accounts saved on the phone (the offline demo data).
+* Without internet the app shows a *No connection* screen with a retry button.
 
 ## Hackathon features
 * 🪙 **Time bank**: teach 1 hour = +1 credit, learn 1 hour = −1. Wallet + history on Profile, balance in the header.
@@ -47,8 +47,8 @@ The app talks to the same Express + PostgreSQL server as the website:
 * 🎉 Confetti when a lesson is booked or finished.
 
 ## Demo account
-aziza@demo.uz / demo12345 (others: bobur@, dilnoza@, jasur@, nilufar@demo.uz — same password).
-The same accounts work on the website.
+aziza@demo.uz / demo12345 (others: bobur@, dilnoza@, jasur@, nilufar@, kamola@, timur@demo.uz — same password).
+The same accounts work on the website. Sample data lives in Supabase (db/09_sample_data.sql in the website repo).
 
 ## Run
 1. Android Studio → File → Open → choose this folder (the one with settings.gradle.kts).

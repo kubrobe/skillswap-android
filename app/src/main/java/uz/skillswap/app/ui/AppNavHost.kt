@@ -9,6 +9,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -90,6 +99,8 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val celebrate by vm.celebrate.collectAsStateWithLifecycle()
+    val sync by vm.sync.collectAsStateWithLifecycle()
+    val user by vm.currentUser.collectAsStateWithLifecycle()
 
     // Live messages from the server: show the newest one for 4 seconds
     var noticeText by remember { mutableStateOf("") }
@@ -176,6 +187,10 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     ) {
         NoticeCard(noticeText)
     }
+    // SkillSwap is always online: when the server cannot be reached, say so and offer a retry.
+    if (user != null && sync.problem != null) {
+        NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
+    }
     ConfettiOverlay(celebrate)
     }
 }
@@ -186,3 +201,23 @@ private fun NavHostController.navigateToTab(route: String) = navigate(route) {
     launchSingleTop = true
     restoreState = true
 }
+
+@Composable
+private fun NoConnectionScreen(message: String, retrying: Boolean, onRetry: () -> Unit) {
+    Box(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("📡", fontSize = 56.sp)
+            Text("No connection", style = MaterialTheme.typography.headlineSmall)
+            Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = onRetry, enabled = !retrying, shape = RoundedCornerShape(16.dp)) {
+                if (retrying) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Text("Try again")
+            }
+        }
+    }
+}
+

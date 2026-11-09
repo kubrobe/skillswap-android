@@ -85,7 +85,6 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val sync by vm.sync.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     var planTarget by remember { mutableStateOf<BookingLine?>(null) }
@@ -135,7 +134,7 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                         item { SectionTitle("Upcoming (${upcoming.size})") }
                         items(upcoming, key = { it.bookingId }) { b ->
                             LessonCard(
-                                b, mode, sync.online, onCancel = { cancelTarget = b }, onDone = { doneTarget = b }, onRate = {},
+                                b, mode, true, onCancel = { cancelTarget = b }, onDone = { doneTarget = b }, onRate = {},
                                 onVideo = {
                                     try { uriHandler.openUri(jitsiUrl(b.bookingId, b.createdAt)) }
                                     catch (e: Exception) { show("No browser found to open the video room") }
@@ -149,7 +148,7 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                         item { SectionTitle("History (${history.size})", Modifier.padding(top = 8.dp)) }
                         items(history, key = { it.bookingId }) { b ->
                             LessonCard(
-                                b, mode, sync.online, onCancel = {}, onDone = {}, onRate = { rateTarget = b },
+                                b, mode, true, onCancel = {}, onDone = {}, onRate = { rateTarget = b },
                                 onVideo = {}, onCalendar = {}, onPlan = { planTarget = b }
                             )
                         }

@@ -91,7 +91,6 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            repo.seedIfEmpty()
             repo.restoreSession()
             _ready.value = true
             repo.refresh()          // online account: download the newest data in the background
