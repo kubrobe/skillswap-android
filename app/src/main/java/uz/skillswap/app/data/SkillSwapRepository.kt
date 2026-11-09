@@ -281,6 +281,9 @@ class SkillSwapRepository(
     /** Save "what I want to learn"; the server then finds perfect matches. */
     suspend fun setWants(skillIds: List<Long>) = onServer { api.setWants(it, skillIds) }
 
+    /** Community numbers for the Impact screen (public, so no token). */
+    suspend fun impact(): uz.skillswap.app.data.remote.Impact = api.impact()
+
     /** A 60-minute plan for a booked lesson: (plan, "ai" or "template"). */
     suspend fun lessonPlan(bookingId: Long): Pair<String, String> {
         val t = token ?: throw IllegalStateException("Please log in first")

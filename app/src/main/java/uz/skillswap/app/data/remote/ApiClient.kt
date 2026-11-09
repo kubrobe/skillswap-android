@@ -38,6 +38,17 @@ class Match(val offerId: Long, val teacherName: String, val skillName: String, v
 /** One line of the live community ticker, e.g. "Jasur taught Guitar · +1 🪙". [at] = epoch millis. */
 class ActivityLine(val text: String, val at: Long)
 
+/** Community numbers for the Impact screen (GET /impact, public). savedUzs is an ESTIMATE, see [assumption]. */
+class Impact(
+    val members: Int, val teachers: Int, val skills: Int,
+    val lessonsDone: Int, val hoursShared: Int, val upcoming: Int,
+    val credits: Int, val avgRating: Double, val reviews: Int,
+    val tutorPriceUzs: Long, val savedUzs: Long, val assumption: String,
+    val weekly: List<WeekCount>, val topSkills: List<TopSkill>
+)
+class WeekCount(val week: String, val lessons: Int)       // week = Monday, "2026-11-02"
+class TopSkill(val name: String, val emoji: String, val lessons: Int)
+
 /** Everything the app downloads in one request; the tables are written into Room as one transaction. */
 class Snapshot(
     val me: User,
@@ -127,6 +138,21 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
             },
             activity = (o.optJSONArray("activity") ?: JSONArray()).objects().map {
                 ActivityLine(text = it.optString("text"), at = it.optDouble("at", 0.0).toLong())
+            }
+        )
+    }
+
+    /** Community impact: the same numbers for everyone, no login needed. */
+    suspend fun impact(): Impact {
+        val o = request("GET", "/impact", null)
+        return Impact(
+            members = o.optInt("members"), teachers = o.optInt("teachers"), skills = o.optInt("skills"),
+            lessonsDone = o.optInt("lessonsDone"), hoursShared = o.optInt("hoursShared"), upcoming = o.optInt("upcoming"),
+            credits = o.optInt("creditsInCirculation"), avgRating = o.optDouble("avgRating", 0.0), reviews = o.optInt("reviews"),
+            tutorPriceUzs = o.optLong("tutorPriceUzs"), savedUzs = o.optLong("savedUzs"), assumption = o.optString("assumption"),
+            weekly = (o.optJSONArray("weekly") ?: JSONArray()).objects().map { WeekCount(it.optString("week"), it.optInt("lessons")) },
+            topSkills = (o.optJSONArray("topSkills") ?: JSONArray()).objects().map {
+                TopSkill(it.optString("name"), it.optString("emoji", "🎓"), it.optInt("lessons"))
             }
         )
     }

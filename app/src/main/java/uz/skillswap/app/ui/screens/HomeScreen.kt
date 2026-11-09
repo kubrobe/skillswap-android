@@ -101,7 +101,7 @@ import uz.skillswap.app.ui.components.SmallPill
 import uz.skillswap.app.ui.components.StaggerIn
 
 @Composable
-fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: () -> Unit) {
+fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: () -> Unit, onImpact: () -> Unit) {
     val offers by vm.offers.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
@@ -169,7 +169,7 @@ fun HomeScreen(vm: SkillSwapViewModel, onOfferClick: (Long) -> Unit, onSwipe: ()
             }
         }
         if (activity.isNotEmpty()) {
-            item { LiveTicker(activity) }
+            item { LiveTicker(activity, onImpact) }
         }
         item {
             LazyRow(
@@ -358,7 +358,7 @@ private fun WantsDialog(skills: List<Skill>, selected: Set<Long>, onDismiss: () 
  * The green dot pings once per line (no endless animation: the blurred tab bar would have to re-blur every frame).
  */
 @Composable
-private fun LiveTicker(lines: List<ActivityLine>) {
+private fun LiveTicker(lines: List<ActivityLine>, onClick: () -> Unit) {
     var index by remember { mutableIntStateOf(0) }
     val ping = remember { Animatable(0f) }
     LaunchedEffect(lines) {
@@ -375,6 +375,7 @@ private fun LiveTicker(lines: List<ActivityLine>) {
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)
             .clip(RoundedCornerShape(16.dp)).background(glassFill())
             .border(BorderStroke(1.dp, glassBorder()), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -405,6 +406,7 @@ private fun LiveTicker(lines: List<ActivityLine>) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
             }
         }
+        Text(" ›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

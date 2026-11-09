@@ -43,6 +43,27 @@ fun nextLevelTarget(done: Int): Int? = when {
     else -> null
 }
 
+/** 4900000 -> "4 900 000" (spaces between thousands, like in Uzbekistan). */
+fun formatUzs(amount: Long): String =
+    String.format(java.util.Locale.US, "%,d", amount).replace(',', ' ')
+
+/** "2026-11-02" (a Monday) -> "02.11" for the chart. Anything else is shown as it is. */
+fun weekLabel(isoDate: String): String =
+    if (isoDate.length >= 10 && isoDate[4] == '-' && isoDate[7] == '-') "${isoDate.substring(8, 10)}.${isoDate.substring(5, 7)}" else isoDate
+
+/**
+ * Growth of finished lessons: the last 3 FULL weeks against the 3 weeks before them, in percent.
+ * The last item (the current, unfinished week) is ignored. null = not enough data or nothing before.
+ */
+fun growthPercent(weekly: List<Int>): Int? {
+    val full = weekly.dropLast(1)
+    if (full.size < 6) return null
+    val recent = full.takeLast(3).sum()
+    val before = full.dropLast(3).takeLast(3).sum()
+    if (before == 0) return null
+    return Math.round((recent - before) * 100.0 / before).toInt()
+}
+
 /** "just now", "5 min ago", "3 h ago", "2 d ago" for the sync status pill. */
 fun syncAgeText(nowMillis: Long, thenMillis: Long): String {
     if (thenMillis <= 0L) return "not yet"

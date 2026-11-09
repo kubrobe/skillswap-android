@@ -9,6 +9,9 @@ import uz.skillswap.app.data.OfferCard
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.buildDeck
+import uz.skillswap.app.util.formatUzs
+import uz.skillswap.app.util.growthPercent
+import uz.skillswap.app.util.weekLabel
 import uz.skillswap.app.util.mergeWants
 import uz.skillswap.app.util.Validators
 import uz.skillswap.app.util.averageRating
@@ -127,5 +130,15 @@ class UtilsTest {
     @Test fun mergeWants_keepsOldOnes_noDuplicates_max10() {
         assertEquals(listOf(1L, 2L, 3L), mergeWants(listOf(1L, 2L), listOf(2L, 3L)))
         assertEquals(10, mergeWants((1L..8L).toList(), listOf(20L, 21L, 22L)).size)
+    }
+
+    @Test fun impactHelpers_moneyWeekLabelAndGrowth() {
+        assertEquals("4 900 000", formatUzs(4_900_000))
+        assertEquals("0", formatUzs(0))
+        assertEquals("02.11", weekLabel("2026-11-02"))
+        // weeks: 1,2,3 | 5,7,8 | current week (ignored) -> (20 - 6) / 6 = +233 %
+        assertEquals(233, growthPercent(listOf(1, 2, 3, 5, 7, 8, 0)))
+        assertTrue(growthPercent(listOf(0, 0, 0, 1, 2, 3, 4)) == null)   // nothing before: no percent
+        assertTrue(growthPercent(listOf(1, 2, 3)) == null)               // not enough weeks
     }
 }

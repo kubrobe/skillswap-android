@@ -60,7 +60,7 @@ import uz.skillswap.app.util.nextLevelTarget
 import uz.skillswap.app.util.weightedRating
 
 @Composable
-fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit) {
+fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () -> Unit) {
     val user by vm.currentUser.collectAsStateWithLifecycle()
     val learning by vm.learning.collectAsStateWithLifecycle()
     val teaching by vm.teaching.collectAsStateWithLifecycle()
@@ -177,6 +177,19 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit) {
                             }
                         }
                     }
+                }
+            }
+
+            // what everybody achieved together
+            AppCard(Modifier.fillMaxWidth(), onClick = onImpact) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🌍", fontSize = 30.sp)
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text("Community impact", style = MaterialTheme.typography.titleMedium)
+                        Text("Lessons, hours and money saved by all SkillSwap people",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("›", style = MaterialTheme.typography.headlineSmall, color = Gold)
                 }
             }
 

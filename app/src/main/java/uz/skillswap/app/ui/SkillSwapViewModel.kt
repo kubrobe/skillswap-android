@@ -29,6 +29,7 @@ import uz.skillswap.app.data.SkillSwapRepository
 import uz.skillswap.app.data.SyncState
 import uz.skillswap.app.data.TimeSlot
 import uz.skillswap.app.data.remote.ActivityLine
+import uz.skillswap.app.data.remote.Impact
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.Wallet
 import uz.skillswap.app.data.User
@@ -151,6 +152,18 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     fun saveLiked(skillIds: List<Long>) {
         val merged = uz.skillswap.app.util.mergeWants(wants.value, skillIds)
         if (merged.toSet() != wants.value.toSet()) setWants(merged) { }
+    }
+
+    // Community impact screen
+    private val _impact = MutableStateFlow<Impact?>(null)
+    val impact: StateFlow<Impact?> = _impact.asStateFlow()
+    private val _impactError = MutableStateFlow<String?>(null)
+    val impactError: StateFlow<String?> = _impactError.asStateFlow()
+
+    fun loadImpact() = viewModelScope.launch {
+        runCatching { repo.impact() }
+            .onSuccess { _impact.value = it; _impactError.value = null }
+            .onFailure { _impactError.value = it.message ?: "Could not load the numbers" }
     }
 
     fun setWants(skillIds: List<Long>, onResult: (String?) -> Unit) = viewModelScope.launch {

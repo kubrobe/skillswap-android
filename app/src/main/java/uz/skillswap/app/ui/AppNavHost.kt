@@ -96,6 +96,7 @@ import uz.skillswap.app.ui.components.ConfettiOverlay
 import uz.skillswap.app.ui.components.NoticeCard
 import uz.skillswap.app.ui.screens.DetailScreen
 import uz.skillswap.app.ui.screens.HomeScreen
+import uz.skillswap.app.ui.screens.ImpactScreen
 import uz.skillswap.app.ui.screens.LessonsScreen
 import uz.skillswap.app.ui.screens.LoginScreen
 import uz.skillswap.app.ui.screens.ProfileScreen
@@ -114,6 +115,7 @@ object Routes {
     const val PROFILE = "profile"
     const val DETAIL = "detail/{offerId}"
     const val SWIPE = "swipe"
+    const val IMPACT = "impact"
     fun detail(id: Long) = "detail/$id"
 }
 
@@ -206,8 +208,10 @@ fun AppNavHost(vm: SkillSwapViewModel) {
             }
             composable(Routes.HOME) {
                 HomeScreen(vm, onOfferClick = { id -> nav.navigate(Routes.detail(id)) },
-                    onSwipe = { nav.navigate(Routes.SWIPE) })
+                    onSwipe = { nav.navigate(Routes.SWIPE) },
+                    onImpact = { nav.navigate(Routes.IMPACT) })
             }
+            composable(Routes.IMPACT) { ImpactScreen(vm, onBack = { nav.popBackStack() }) }
             composable(Routes.SWIPE) {
                 SwipeScreen(vm,
                     onClose = { nav.popBackStack() },
@@ -227,7 +231,7 @@ fun AppNavHost(vm: SkillSwapViewModel) {
             composable(Routes.PROFILE) {
                 ProfileScreen(vm, onLoggedOut = {
                     nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
-                })
+                }, onImpact = { nav.navigate(Routes.IMPACT) })
             }
         }
     }
@@ -265,7 +269,7 @@ fun AppNavHost(vm: SkillSwapViewModel) {
 }
 
 /** Screens that slide in like an iPhone "push"; everything else fades. */
-private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER)
+private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT)
 /** Screens that slide up from the bottom like an iPhone sheet. */
 private val MODAL = setOf(Routes.SWIPE)
 private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
