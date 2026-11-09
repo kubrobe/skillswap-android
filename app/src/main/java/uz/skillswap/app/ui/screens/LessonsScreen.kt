@@ -27,6 +27,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import uz.skillswap.app.ui.components.bottomBarSpace
+import uz.skillswap.app.ui.components.LearnerCheckInDialog
+import uz.skillswap.app.ui.components.TeacherCheckInDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,7 +84,8 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     var learnMode by rememberSaveable { mutableStateOf(true) }
     var rateTarget by remember { mutableStateOf<BookingLine?>(null) }
     var cancelTarget by remember { mutableStateOf<BookingLine?>(null) }
-    var doneTarget by remember { mutableStateOf<BookingLine?>(null) }
+    var checkinTarget by remember { mutableStateOf<BookingLine?>(null) }   // learner checks in
+    var qrTarget by remember { mutableStateOf<BookingLine?>(null) }        // teacher shows the QR
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -136,7 +139,8 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                         item { SectionTitle("Upcoming (${upcoming.size})") }
                         items(upcoming, key = { it.bookingId }) { b ->
                             LessonCard(
-                                b, mode, true, onCancel = { cancelTarget = b }, onDone = { doneTarget = b }, onRate = {},
+                                b, mode, true, onCancel = { cancelTarget = b }, onDone = { checkinTarget = b }, onRate = {},
+                                onShowQr = { qrTarget = b },
                                 onVideo = {
                                     try { uriHandler.openUri(jitsiUrl(b.bookingId, b.createdAt)) }
                                     catch (e: Exception) { show("No browser found to open the video room") }
@@ -150,7 +154,7 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                         item { SectionTitle("History (${history.size})", Modifier.padding(top = 8.dp)) }
                         items(history, key = { it.bookingId }) { b ->
                             LessonCard(
-                                b, mode, true, onCancel = {}, onDone = {}, onRate = { rateTarget = b },
+                                b, mode, true, onCancel = {}, onDone = {}, onRate = { rateTarget = b }, onShowQr = {},
                                 onVideo = {}, onCalendar = {}, onPlan = { planTarget = b }
                             )
                         }
@@ -174,18 +178,26 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
             onDismiss = { cancelTarget = null }
         )
     }
-    doneTarget?.let { target ->
-        ConfirmDialog(
-            title = "Mark as done?",
-            text = "Did you finish \"${target.skillName}\"? After this you can rate the lesson.",
-            confirmLabel = "Yes, it is done",
-            onConfirm = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                vm.complete(target.bookingId) { err -> if (err == null) vm.celebrate() else show(err) }
-                doneTarget = null
-            },
-            onDismiss = { doneTarget = null }
+    checkinTarget?.let { target ->
+        LearnerCheckInDialog(
+            bookingId = target.bookingId, skillName = target.skillName,
+            onDismiss = { checkinTarget = null },
+            onSubmit = { code, done ->
+                vm.complete(target.bookingId, code) { err ->
+                    done(err)
+                    if (err == null) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        checkinTarget = null
+                        vm.celebrate()
+                    }
+                }
+            }
         )
+    }
+    qrTarget?.let { target ->
+        target.checkinCode?.let { code ->
+            TeacherCheckInDialog(target.bookingId, code, target.skillName, target.learnerName, onDismiss = { qrTarget = null })
+        }
     }
     planTarget?.let { target ->
         PlanDialog(vm, target, onDismiss = { planTarget = null })
@@ -205,7 +217,7 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
 @Composable
 private fun LessonCard(
     b: BookingLine, learnMode: Boolean, online: Boolean,
-    onCancel: () -> Unit, onDone: () -> Unit, onRate: () -> Unit,
+    onCancel: () -> Unit, onDone: () -> Unit, onRate: () -> Unit, onShowQr: () -> Unit,
     onVideo: () -> Unit, onCalendar: () -> Unit, onPlan: () -> Unit
 ) {
     val (label, statusColor) = when (b.status) {
@@ -230,7 +242,7 @@ private fun LessonCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (learnMode && b.status == STATUS_BOOKED) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                    Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { Text("Mark as done") }
+                    Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { Text("✅ Check in") }
                     OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp)) { Text("Cancel") }
                 }
             }
@@ -241,6 +253,18 @@ private fun LessonCard(
                         SmallAction("📅 Calendar", onCalendar)
                     }
                     if (online) SmallAction("✨ AI plan", onPlan)
+                }
+            }
+            if (!learnMode && b.status == STATUS_BOOKED && b.checkinCode != null) {
+                // the teacher's side: the secret code + a button for the big QR
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Check-in code", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(b.checkinCode.toCharArray().joinToString(" "), fontSize = 22.sp,
+                            color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
+                    }
+                    Button(onClick = onShowQr, shape = RoundedCornerShape(14.dp)) { Text("Show QR") }
                 }
             }
             if (!learnMode && b.status == STATUS_BOOKED) {

@@ -157,8 +157,8 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
         onResult(runCatching { repo.cancel(bookingId) }.exceptionOrNull()?.message)
     }
 
-    fun complete(bookingId: Long, onResult: (String?) -> Unit) = viewModelScope.launch {
-        onResult(runCatching { repo.complete(bookingId) }.exceptionOrNull()?.message)
+    fun complete(bookingId: Long, code: String, onResult: (String?) -> Unit) = viewModelScope.launch {
+        onResult(runCatching { repo.complete(bookingId, code) }.exceptionOrNull()?.message)
     }
 
     fun review(bookingId: Long, rating: Int, comment: String, onResult: (String?) -> Unit) =

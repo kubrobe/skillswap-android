@@ -8,7 +8,9 @@ import org.junit.Test
 import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.Validators
 import uz.skillswap.app.util.averageRating
+import uz.skillswap.app.util.checkinQrText
 import uz.skillswap.app.util.hasDuplicateSlots
+import uz.skillswap.app.util.parseCheckinQr
 import uz.skillswap.app.util.jitsiUrl
 import uz.skillswap.app.util.nextOccurrence
 import uz.skillswap.app.util.memberLevel
@@ -95,5 +97,13 @@ class UtilsTest {
         assertEquals(jitsiUrl(5, 123456789L), jitsiUrl(5, 123456789L))
         assertNotEquals(jitsiUrl(5, 123456789L), jitsiUrl(6, 123456789L))
         assertTrue(jitsiUrl(5, 1L).startsWith("https://meet.jit.si/SkillSwap-5-"))
+    }
+
+    @Test fun checkinQr_roundTripAndRejectsOtherLessons() {
+        val text = checkinQrText(42, "0731")
+        assertEquals("0731", parseCheckinQr(text, 42))
+        assertTrue(parseCheckinQr(text, 43) == null)                  // QR of another lesson
+        assertTrue(parseCheckinQr("https://example.com", 42) == null) // not a SkillSwap QR
+        assertTrue(parseCheckinQr("skillswap:checkin:42:73", 42) == null)
     }
 }

@@ -41,7 +41,8 @@ data class Offer(
     val userId: Long,
     val skillId: Long,
     val level: String,                 // Beginner / Intermediate / Advanced
-    val description: String
+    val description: String,
+    val trusted: Boolean = false       // teacher with 2+ finished lessons and 4.5+ average (from the server)
 )
 
 /** A weekly time the teacher is free. day: 1 = Monday ... 7 = Sunday. */
@@ -74,7 +75,8 @@ data class Booking(
     val slotId: Long,
     val offerId: Long,
     val status: String = STATUS_BOOKED,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val checkinCode: String? = null    // only the TEACHER receives it; the learner gets it in person
 )
 
 const val STATUS_BOOKED = "BOOKED"
@@ -115,7 +117,8 @@ data class OfferCard(
     val teacherName: String,
     val rating: Double,
     val reviewCount: Int,
-    val freeSlots: Int
+    val freeSlots: Int,
+    val trusted: Boolean
 )
 
 /** One row of "My lessons". */
@@ -129,7 +132,8 @@ data class BookingLine(
     val learnerName: String,
     val day: Int,
     val hour: Int,
-    val myRating: Int?
+    val myRating: Int?,
+    val checkinCode: String?
 )
 
 data class ReviewLine(

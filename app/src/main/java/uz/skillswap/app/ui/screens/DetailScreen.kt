@@ -97,6 +97,10 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                         "${levelMedal(o.level)} ${o.level}  ·  ${o.category}  ·  ${ratingText(o)}",
                         style = MaterialTheme.typography.labelLarge, color = Color.White
                     )
+                    if (o.trusted) {
+                        Text("✓ Trusted teacher · 2+ finished lessons rated 4.5★ or more",
+                            style = MaterialTheme.typography.labelMedium, color = Color(0xFF9FF0C6))
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
             }

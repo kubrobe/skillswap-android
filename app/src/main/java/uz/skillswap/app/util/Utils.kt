@@ -79,6 +79,18 @@ fun nextOccurrence(nowMillis: Long, day: Int, hour: Int, zone: java.util.TimeZon
 fun jitsiUrl(bookingId: Long, createdAt: Long): String =
     "https://meet.jit.si/SkillSwap-$bookingId-${(createdAt % 1_000_000_000L).toString(36)}"
 
+/** Text inside the teacher's check-in QR code. */
+fun checkinQrText(bookingId: Long, code: String): String = "skillswap:checkin:$bookingId:$code"
+
+/** Reads a scanned QR. Returns the 4-digit code only if it is a SkillSwap check-in for THIS booking. */
+fun parseCheckinQr(raw: String, bookingId: Long): String? {
+    val parts = raw.trim().split(":")
+    if (parts.size != 4 || parts[0] != "skillswap" || parts[1] != "checkin") return null
+    if (parts[2].toLongOrNull() != bookingId) return null
+    val code = parts[3]
+    return if (code.length == 4 && code.all { it.isDigit() }) code else null
+}
+
 object Validators {
     private val emailRegex = Regex("^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$")
     fun isValidEmail(email: String) = emailRegex.matches(email.trim())

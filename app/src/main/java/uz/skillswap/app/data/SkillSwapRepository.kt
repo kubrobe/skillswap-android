@@ -238,7 +238,7 @@ class SkillSwapRepository(
 
     suspend fun cancel(bookingId: Long) = onServer { api.cancel(it, bookingId) }
 
-    suspend fun complete(bookingId: Long) = onServer { api.complete(it, bookingId) }
+    suspend fun complete(bookingId: Long, code: String) = onServer { api.complete(it, bookingId, code.trim()) }
 
     suspend fun review(bookingId: Long, rating: Int, comment: String): Long =
         onServer { api.review(it, bookingId, rating, comment) }

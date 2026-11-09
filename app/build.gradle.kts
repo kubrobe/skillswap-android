@@ -58,6 +58,9 @@ dependencies {
 
     // Haze: real background blur behind the floating tab bar (Android 12+; frosted fallback below)
     implementation("dev.chrisbanes.haze:haze:1.7.0")
+    // Lesson check-in: ZXing draws the QR code, Google's code scanner reads it (no camera permission needed)
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
     testImplementation(libs.junit)
 }

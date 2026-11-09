@@ -47,7 +47,8 @@ private const val OFFER_SELECT = """
            u.id AS teacherId, u.fullName AS teacherName,
            COALESCE((SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.offerId = o.id), 0.0) AS rating,
            (SELECT COUNT(*) FROM reviews r WHERE r.offerId = o.id) AS reviewCount,
-           (SELECT COUNT(*) FROM time_slots t WHERE t.offerId = o.id AND t.isBooked = 0) AS freeSlots
+           (SELECT COUNT(*) FROM time_slots t WHERE t.offerId = o.id AND t.isBooked = 0) AS freeSlots,
+           o.trusted AS trusted
     FROM offers o
     JOIN skills s ON s.id = o.skillId
     JOIN users u ON u.id = o.userId
@@ -88,7 +89,8 @@ private const val BOOKING_SELECT = """
            s.name AS skillName, s.emoji AS emoji,
            tu.fullName AS teacherName, lu.fullName AS learnerName,
            t.day AS day, t.hour AS hour,
-           (SELECT r.rating FROM reviews r WHERE r.bookingId = b.id) AS myRating
+           (SELECT r.rating FROM reviews r WHERE r.bookingId = b.id) AS myRating,
+           b.checkinCode AS checkinCode
     FROM bookings b
     JOIN time_slots t ON t.id = b.slotId
     JOIN offers o ON o.id = b.offerId

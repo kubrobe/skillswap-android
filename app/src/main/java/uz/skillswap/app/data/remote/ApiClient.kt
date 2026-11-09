@@ -87,7 +87,8 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
             },
             offers = o.getJSONArray("offers").objects().map {
                 Offer(id = it.getLong("id"), userId = it.getLong("teacherId"), skillId = it.getLong("skillId"),
-                    level = it.getString("level"), description = it.getString("description"))
+                    level = it.getString("level"), description = it.getString("description"),
+                    trusted = it.optBoolean("trusted", false))
             },
             slots = o.getJSONArray("slots").objects().map {
                 TimeSlot(id = it.getLong("id"), offerId = it.getLong("offerId"), day = it.getInt("day"),
@@ -96,7 +97,8 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
             bookings = o.getJSONArray("bookings").objects().map {
                 Booking(id = it.getLong("id"), learnerId = it.getLong("learnerId"), slotId = it.getLong("slotId"),
                     offerId = it.getLong("offerId"), status = it.getString("status"),
-                    createdAt = it.getDouble("createdAt").toLong())
+                    createdAt = it.getDouble("createdAt").toLong(),
+                    checkinCode = if (it.isNull("checkinCode")) null else it.getString("checkinCode"))
             },
             reviews = o.getJSONArray("reviews").objects().map {
                 Review(id = it.getLong("id"), bookingId = it.getLong("bookingId"), offerId = it.getLong("offerId"),
@@ -196,8 +198,9 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
         request("POST", "/bookings/$bookingId/cancel", token)
     }
 
-    suspend fun complete(token: String, bookingId: Long) {
-        request("POST", "/bookings/$bookingId/complete", token)
+    /** Finish a lesson with the teacher's check-in code (scanned from the QR or typed). */
+    suspend fun complete(token: String, bookingId: Long, code: String) {
+        request("POST", "/bookings/$bookingId/complete", token, JSONObject().put("code", code))
     }
 
     suspend fun review(token: String, bookingId: Long, rating: Int, comment: String): Long =
