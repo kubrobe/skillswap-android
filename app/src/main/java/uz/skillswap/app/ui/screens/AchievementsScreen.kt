@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.IconTile
+import uz.skillswap.app.ui.components.SkillIcons
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -158,7 +160,10 @@ private fun Podium(top: List<LeaderRow>, me: Long, key: Boolean) {
                         Modifier.size(52.dp).clip(CircleShape)
                             .background(if (row.id == me) GoldPrimary else MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
-                    ) { Text(row.emoji, fontSize = 24.sp) }
+                    ) {
+                        Icon(SkillIcons.named(SkillIcons.idForEmoji(row.emoji)), contentDescription = null,
+                            tint = if (row.id == me) OnGold else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(26.dp))
+                    }
                     Text(if (row.id == me) "${row.name} · ${tr.you}" else row.name,
                         style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 4.dp))
@@ -198,7 +203,7 @@ private fun LeaderLine(rank: Int, row: LeaderRow, mine: Boolean) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("$rank", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.width(32.dp))
-            Text(row.emoji, fontSize = 22.sp)
+            SkillIcons.idForEmoji(row.emoji).let { id -> IconTile(id, SkillIcons.categoryOf(id), size = 36.dp) }
             Text(row.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(start = 10.dp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (mine) SmallPill(tr.you, GoldDeep)

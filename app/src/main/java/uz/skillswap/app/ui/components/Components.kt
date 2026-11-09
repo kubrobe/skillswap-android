@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.components
 
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.material3.Icon
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -232,25 +234,49 @@ fun AppCard(
 }
 
 @Composable
-fun EmojiTile(emoji: String, category: String, size: Dp = 56.dp) {
+fun SkillTile(skillName: String, category: String, size: Dp = 56.dp) {
+    val id = SkillIcons.idFor(skillName, category)
+    IconTile(id, category.ifBlank { SkillIcons.categoryOf(id) }, size)
+}
+
+/**
+ * A skill's icon on a small glass tile in its category colour: soft colour gradient, a thin
+ * coloured edge and the line icon in a light tint of the same colour (our own icons, not emoji).
+ */
+@Composable
+fun IconTile(iconId: String, category: String, size: Dp = 56.dp) {
     val color = categoryColor(category)
+    val shape = RoundedCornerShape(size * 0.32f)
     Box(
-        modifier = Modifier.size(size).clip(RoundedCornerShape(18.dp)).background(color.copy(alpha = 0.18f)),
+        modifier = Modifier.size(size).clip(shape)
+            .background(Brush.linearGradient(listOf(color.copy(alpha = 0.32f), color.copy(alpha = 0.10f))))
+            .border(1.dp, color.copy(alpha = 0.40f), shape),
         contentAlignment = Alignment.Center
     ) {
-        Text(emoji, fontSize = (size.value * 0.5f).sp)
+        Icon(SkillIcons.named(iconId), contentDescription = null, tint = lerp(color, Color.White, 0.45f),
+            modifier = Modifier.size(size * 0.52f))
     }
+}
+
+/** Just the skill's line icon, e.g. inside a list row or next to a name. */
+@Composable
+fun SkillIcon(skillName: String, category: String, size: Dp = 20.dp, tint: Color = Color.Unspecified) {
+    val id = SkillIcons.idFor(skillName, category)
+    val color = if (tint != Color.Unspecified) tint else categoryColor(category.ifBlank { SkillIcons.categoryOf(id) })
+    Icon(SkillIcons.named(id), contentDescription = null, tint = color, modifier = Modifier.size(size))
 }
 
 @Composable
 fun LevelBadge(level: String) {
     val color = levelColor(level)
-    Box(
+    Row(
         modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.25f))
-            .padding(horizontal = 10.dp, vertical = 3.dp)
+            .padding(start = 8.dp, end = 10.dp, top = 3.dp, bottom = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("${levelMedal(level)} ${LocalStrings.current.level(level)}", style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface)
+        Icon(SkillIcons.forLevel(level), contentDescription = null, tint = color, modifier = Modifier.size(15.dp))
+        Text(LocalStrings.current.level(level), style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 4.dp))
     }
 }
 

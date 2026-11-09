@@ -11,6 +11,7 @@ import uz.skillswap.app.ui.i18n.En
 import uz.skillswap.app.ui.i18n.Lang
 import uz.skillswap.app.ui.i18n.Ru
 import uz.skillswap.app.ui.i18n.Uz
+import uz.skillswap.app.ui.components.SkillIcons
 import uz.skillswap.app.ui.components.badgeEmoji
 import uz.skillswap.app.util.Security
 import uz.skillswap.app.util.buildDeck
@@ -169,5 +170,24 @@ class UtilsTest {
             assertNotEquals(En.badgeTitle(id), Ru.badgeTitle(id))
             assertTrue(Ru.badgeDesc(id).isNotBlank())
         }
+    }
+
+    @Test fun skillIcons_everySkillHasItsOwnIcon_andEmojiAgreesWithName() {
+        // the 23 skills of the catalog with the emoji the server sends for them
+        val catalog = listOf(
+            "Python basics" to "🐍", "Web development (HTML/CSS)" to "💻", "SQL and databases" to "🗄️",
+            "JavaScript" to "📜", "Excel and data analysis" to "📊", "English conversation" to "🗣️",
+            "IELTS writing" to "✍️", "Korean for beginners" to "🇰🇷", "Russian" to "🇷🇺",
+            "UI design in Figma" to "🎨", "Photo editing" to "🖼️", "Video editing" to "🎬",
+            "Guitar" to "🎸", "Piano" to "🎹", "Gym training basics" to "🏋️", "Chess" to "♟️",
+            "Running for beginners" to "🏃", "Public speaking" to "🎤", "Presentation design" to "📽️",
+            "Academic writing" to "📝", "Cooking plov" to "🍛", "Baking" to "🧁", "Calligraphy" to "🖌️"
+        )
+        val ids = catalog.map { (name, _) -> SkillIcons.idFor(name) }
+        assertEquals(catalog.size, ids.toSet().size)                       // 23 different pictures
+        assertTrue("spark" !in ids)
+        catalog.forEach { (name, emoji) -> assertEquals(name, SkillIcons.idFor(name), SkillIcons.idForEmoji(emoji)) }
+        assertEquals("note", SkillIcons.idFor("Violin", "Music"))         // unknown skill: its category's icon
+        assertEquals("spark", SkillIcons.idFor("Something new"))
     }
 }

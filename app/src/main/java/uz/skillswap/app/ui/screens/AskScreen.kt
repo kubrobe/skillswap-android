@@ -68,7 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
-import uz.skillswap.app.ui.components.EmojiTile
+import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.components.SmallPill
 import uz.skillswap.app.ui.components.StaggerIn
 import uz.skillswap.app.ui.components.pressScale
@@ -187,7 +187,7 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
                                         StaggerIn(i) {
                                             AppCard(Modifier.fillMaxWidth(), onClick = { onOpen(o.offerId) }) {
                                                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                    EmojiTile(o.emoji, o.category)
+                                                    SkillTile(o.skillName, o.category)
                                                     Column(Modifier.weight(1f).padding(start = 12.dp),
                                                         verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                                         Text(o.skillName, style = MaterialTheme.typography.titleMedium,

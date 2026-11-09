@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.SkillIcon
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -249,7 +250,7 @@ private fun TopSkillsCard(top: List<TopSkill>) {
             SectionTitle(LocalStrings.current.popularSkills)
             top.forEachIndexed { i, s ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(s.emoji, fontSize = 20.sp, modifier = Modifier.width(30.dp))
+                    Box(Modifier.width(32.dp)) { SkillIcon(s.name, "", size = 22.dp) }
                     Column(Modifier.weight(1f)) {
                         Row {
                             Text("${i + 1}. ${s.name}", style = MaterialTheme.typography.bodyMedium,

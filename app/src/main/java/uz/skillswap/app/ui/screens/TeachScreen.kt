@@ -1,5 +1,8 @@
 package uz.skillswap.app.ui.screens
 
+import androidx.compose.material3.Icon
+import uz.skillswap.app.ui.components.SkillIcons
+import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -61,7 +64,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
-import uz.skillswap.app.ui.components.EmojiTile
 import uz.skillswap.app.ui.components.EmptyState
 import uz.skillswap.app.ui.components.GradientHeader
 import uz.skillswap.app.ui.components.Green
@@ -129,7 +131,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                         SectionTitle(tr.step1)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(skills, key = { it.id }) { s ->
-                                Pill("${s.emoji} ${s.name}", skillId == s.id, { skillId = s.id; formError = null })
+                                Pill(s.name, skillId == s.id, { skillId = s.id; formError = null })
                             }
                         }
                     }
@@ -221,7 +223,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                 myOffers.forEach { o ->
                     AppCard(Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            EmojiTile(o.emoji, o.category, size = 48.dp)
+                            SkillTile(o.skillName, o.category, size = 48.dp)
                             Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(o.skillName, style = MaterialTheme.typography.titleMedium)
                                 LevelBadge(o.level)
@@ -259,7 +261,8 @@ private fun LevelOption(info: LevelInfo, selected: Boolean, onClick: () -> Unit)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(levelMedal(info.name), fontSize = 24.sp)
+        Icon(SkillIcons.forLevel(info.name), contentDescription = null, tint = levelColor(info.name),
+            modifier = Modifier.size(28.dp))
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(tr.level(info.name), style = MaterialTheme.typography.titleSmall)
             Text(hint, style = MaterialTheme.typography.bodySmall,

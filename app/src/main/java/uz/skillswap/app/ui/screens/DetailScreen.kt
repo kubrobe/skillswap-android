@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -53,7 +54,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
-import uz.skillswap.app.ui.components.EmojiTile
 import uz.skillswap.app.ui.components.GradientHeader
 import uz.skillswap.app.ui.components.Green
 import uz.skillswap.app.ui.components.SectionTitle
@@ -85,7 +85,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                 }
                 if (o != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        EmojiTile(o.emoji, o.category, size = 72.dp)
+                        SkillTile(o.skillName, o.category, size = 72.dp)
                         Column(Modifier.padding(start = 16.dp)) {
                             Text(o.skillName, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                             Text(tr.byTeacher(o.teacherName), style = MaterialTheme.typography.bodyMedium,
@@ -94,7 +94,7 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "${levelMedal(o.level)} ${tr.level(o.level)}  ·  ${o.category}  ·  ${ratingText(o, tr.new)}",
+                        "${tr.level(o.level)}  ·  ${o.category}  ·  ${ratingText(o, tr.new)}",
                         style = MaterialTheme.typography.labelLarge, color = Color.White
                     )
                     if (o.trusted) {

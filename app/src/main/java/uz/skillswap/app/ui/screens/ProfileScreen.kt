@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import androidx.compose.material3.Icon
+import uz.skillswap.app.ui.components.SkillIcons
 import uz.skillswap.app.ui.components.BadgeCircle
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
@@ -138,7 +140,8 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionTitle(tr.memberLevel)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (level == "Newcomer") "🌱" else levelMedal(level), fontSize = 30.sp)
+                        Icon(SkillIcons.forLevel(level), contentDescription = null, modifier = Modifier.size(34.dp),
+                            tint = if (level == "Newcomer") Green else levelColor(level))
                         Column(Modifier.padding(start = 12.dp)) {
                             Text(tr.level(level), style = MaterialTheme.typography.titleMedium)
                             Text(tr.finishedLessons(done),

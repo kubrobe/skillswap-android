@@ -12,7 +12,7 @@ Profile (stats, level, time bank, badges, Telegram, language) · Community impac
 users · skills · offers (user→skill) · time_slots (→offer) · bookings (→user, slot, offer) · reviews (→booking)
 
 ## Design and motion
-Graphite & Gold theme · glass cards over a soft glow · floating liquid-glass tab bar with real blur (Haze) and a stretching gold lens · iOS-style push transitions with parallax · Poppins font · gradient headers · one card style (`AppCard`) · bronze/silver/gold levels ·
+Graphite & Gold theme · our own line-icon set for all 23 skills and the level medals (no emoji) · glass cards over a soft glow · floating liquid-glass tab bar with real blur (Haze) and a stretching gold lens · iOS-style push transitions with parallax · Poppins font · gradient headers · one card style (`AppCard`) · bronze/silver/gold levels ·
 fade+slide screen transitions (250 ms) · press-scale on cards and chips · staggered list entrance · count-up statistics ·
 confirm dialogs · animated booking success · light and dark theme follow the phone.
 Compose animations follow the phone's "animation scale" setting, so "Remove animations" turns them off.
@@ -68,5 +68,5 @@ The same accounts work on the website. Sample data lives in Supabase (db/09_samp
 ## Run
 1. Android Studio → File → Open → choose this folder (the one with settings.gradle.kts).
 2. Wait for Gradle sync, press the green Run button.
-3. Tests (18 unit tests): right-click `app/src/test/.../UtilsTest.kt` → Run.
+3. Tests (19 unit tests): right-click `app/src/test/.../UtilsTest.kt` → Run.
 4. Release APK: Build → Generate Signed App Bundle / APK → APK → release.

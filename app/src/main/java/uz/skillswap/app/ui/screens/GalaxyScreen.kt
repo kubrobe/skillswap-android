@@ -1,5 +1,11 @@
 package uz.skillswap.app.ui.screens
 
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import uz.skillswap.app.ui.components.IconTile
+import uz.skillswap.app.ui.components.SkillIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
@@ -172,7 +178,7 @@ private class Layout(g: Galaxy, previous: Layout?, measurer: TextMeasurer, tr: S
     val phase: FloatArray
     val paths: List<Path>
     val labels: List<TextLayoutResult>
-    val emojis: List<TextLayoutResult>
+    val iconIds: List<String>
     var temperature: Float
 
     init {
@@ -207,7 +213,7 @@ private class Layout(g: Galaxy, previous: Layout?, measurer: TextMeasurer, tr: S
                 TextStyle(color = if (me) GoldPrimary else Color.White.copy(alpha = 0.85f), fontSize = 11.sp,
                     fontWeight = if (me) FontWeight.Bold else FontWeight.Medium))
         }
-        emojis = nodes.map { node -> measurer.measure(node.emoji, TextStyle(fontSize = 12.sp)) }
+        iconIds = nodes.map { node -> SkillIcons.idForEmoji(node.emoji) }
         temperature = if (previous == null) 60f else 10f
     }
 
@@ -272,6 +278,9 @@ private fun GalaxyView(g: Galaxy, tr: Strings) {
     var selected by remember { mutableStateOf<Long?>(null) }
     var cardNode by remember { mutableStateOf<GalaxyNode?>(null) }
     val view = remember { ViewXform() }
+    // our skill icons, drawn white inside the stars
+    val painters = SkillIcons.ids.associateWith { id -> rememberVectorPainter(SkillIcons.named(id)) }
+    val white = remember { ColorFilter.tint(Color.White) }
 
     // New data: keep the stars where they are and fire a comet along every new or busier lesson line
     LaunchedEffect(g, tr) {
@@ -397,8 +406,13 @@ private fun GalaxyView(g: Galaxy, tr: Strings) {
                 if (node.id == g.me) drawCircle(GoldPrimary, r + 5f * density, c, style = Stroke(2.2f * density))
                 if (node.id == selected) drawCircle(Color.White, r + 9f * density, c, style = Stroke(1.5f * density))
                 if (r > 11f * density) {
-                    val em = lay.emojis[i]
-                    drawText(em, topLeft = Offset(c.x - em.size.width / 2f, c.y - em.size.height / 2f))
+                    val p = painters[lay.iconIds[i]]
+                    if (p != null) {
+                        val icon = r * 1.15f
+                        translate(c.x - icon / 2f, c.y - icon / 2f) {
+                            with(p) { draw(Size(icon, icon), colorFilter = white) }
+                        }
+                    }
                 }
                 if (node.id == g.me || node.id == selected || node.taught + node.learned >= 3 || zoom > 1.6f) {
                     val lb = lay.labels[i]
@@ -462,7 +476,7 @@ private fun StarCard(node: GalaxyNode, g: Galaxy, tr: Strings) {
             .padding(18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(node.emoji, fontSize = 34.sp)
+        SkillIcons.idForEmoji(node.emoji).let { id -> IconTile(id, node.category.ifBlank { SkillIcons.categoryOf(id) }, 48.dp) }
         Column(Modifier.padding(start = 14.dp)) {
             Text(if (node.id == g.me) "${node.name} · ${tr.you}" else node.name,
                 style = MaterialTheme.typography.titleMedium, color = Color.White)

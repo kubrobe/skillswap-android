@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.i18n.Strings
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.Crossfade
@@ -232,7 +233,7 @@ private fun LessonCard(
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(b.emoji, fontSize = 28.sp)
+                SkillTile(b.skillName, "", size = 40.dp)
                 Text(b.skillName, Modifier.weight(1f).padding(start = 10.dp),
                     style = MaterialTheme.typography.titleMedium)
                 SmallPill(label, statusColor)

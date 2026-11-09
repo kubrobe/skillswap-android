@@ -1,5 +1,7 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.SkillIcon
+import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -90,7 +92,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import uz.skillswap.app.data.OfferCard
 import uz.skillswap.app.ui.SkillSwapViewModel
-import uz.skillswap.app.ui.components.EmojiTile
 import uz.skillswap.app.ui.components.EmptyState
 import uz.skillswap.app.ui.components.Gold
 import uz.skillswap.app.ui.components.GradientHeader
@@ -231,7 +232,7 @@ fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
     val tr = LocalStrings.current
     AppCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            EmojiTile(offer.emoji, offer.category)
+            SkillTile(offer.skillName, offer.category)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(offer.skillName, style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -336,7 +337,7 @@ private fun MatchCard(m: Match, onClick: () -> Unit) {
                  else base.background(glassFill()).border(BorderStroke(1.dp, glassBorder()), shape)
     Column(filled.clickable(onClick = onClick).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(m.emoji, fontSize = 28.sp)
+            SkillTile(m.skillName, "", size = 42.dp)
             Column(Modifier.padding(start = 10.dp)) {
                 Text(m.skillName, style = MaterialTheme.typography.titleSmall, color = textColor,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -370,7 +371,8 @@ private fun WantsDialog(skills: List<Skill>, selected: Set<Long>, onDismiss: () 
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(checked = on, onCheckedChange = null)
-                        Text("${sk.emoji} ${sk.name}", style = MaterialTheme.typography.bodyMedium)
+                        SkillIcon(sk.name, sk.category, size = 18.dp)
+                        Text(sk.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 8.dp))
                     }
                 }
             }

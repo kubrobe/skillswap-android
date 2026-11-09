@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.screens
 
+import uz.skillswap.app.ui.components.SkillIcons
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -276,7 +277,8 @@ private fun LessonCard(card: DeckCard, modifier: Modifier, onClick: (() -> Unit)
                 .background(Brush.linearGradient(listOf(BrandStart, BrandEnd, categoryColor(o.category).copy(alpha = 0.55f)))),
             contentAlignment = Alignment.Center
         ) {
-            Text(o.emoji, fontSize = 110.sp)
+            Icon(SkillIcons.forSkill(o.skillName, o.category), contentDescription = null,
+                tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(124.dp))
             Row(Modifier.align(Alignment.TopStart).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallPill(o.category, Color.White)
                 if (o.trusted) SmallPill(tr.trusted, Green)
@@ -399,7 +401,7 @@ private fun SwapOverlay(card: DeckCard, myName: String, onBook: () -> Unit, onKe
                 Avatar(initials(myName), null, Modifier.graphicsLayer { translationX = -(1f - enter.value) * 320f })
                 Text("🔁", fontSize = 32.sp, modifier = Modifier.padding(horizontal = 10.dp)
                     .graphicsLayer { rotationZ = enter.value * 360f })
-                Avatar(initials(card.offer.teacherName), card.offer.emoji,
+                Avatar(initials(card.offer.teacherName), SkillIcons.idFor(card.offer.skillName, card.offer.category),
                     Modifier.graphicsLayer { translationX = (1f - enter.value) * 320f })
             }
             Text(
@@ -417,7 +419,7 @@ private fun SwapOverlay(card: DeckCard, myName: String, onBook: () -> Unit, onKe
 }
 
 @Composable
-private fun Avatar(initials: String, badge: String?, modifier: Modifier) {
+private fun Avatar(initials: String, badgeIcon: String?, modifier: Modifier) {
     Box(modifier) {
         Box(
             Modifier.size(96.dp).clip(CircleShape)
@@ -425,12 +427,12 @@ private fun Avatar(initials: String, badge: String?, modifier: Modifier) {
                 .border(3.dp, Color.White.copy(alpha = 0.85f), CircleShape),
             contentAlignment = Alignment.Center
         ) { Text(initials, color = OnGold, fontSize = 32.sp, fontWeight = FontWeight.Black) }
-        if (badge != null) {
+        if (badgeIcon != null) {
             Box(
                 Modifier.align(Alignment.BottomEnd).size(36.dp).clip(CircleShape)
                     .background(Color.White).border(2.dp, GoldPrimary, CircleShape),
                 contentAlignment = Alignment.Center
-            ) { Text(badge, fontSize = 18.sp) }
+            ) { Icon(SkillIcons.named(badgeIcon), contentDescription = null, tint = GoldDeep, modifier = Modifier.size(20.dp)) }
         }
     }
 }
