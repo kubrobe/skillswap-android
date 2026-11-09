@@ -3,7 +3,7 @@ package uz.skillswap.app.data
 import uz.skillswap.app.util.Security
 
 // Inserted the first time the app starts (when the skills table is empty).
-// Demo password for every demo member: demo123
+// Demo password for every demo member: demo12345 (same as on the website)
 
 class SeedOffer(
     val teacherEmail: String, val skill: String, val level: String,
@@ -32,7 +32,7 @@ object SampleData {
     )
 
     private fun member(name: String, email: String, bio: String) =
-        User(fullName = name, email = email, passwordHash = Security.hashPassword("demo123", email), bio = bio)
+        User(fullName = name, email = email, passwordHash = Security.hashPassword("demo12345", email), bio = bio)
 
     val users = listOf(
         member("Aziza Karimova", "aziza@demo.uz", "Data student who loves teaching Python."),

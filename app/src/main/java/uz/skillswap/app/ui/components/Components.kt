@@ -56,10 +56,13 @@ val Red = Color(0xFFEF5350)       // error, full, cancelled
 
 /** Each category gets its own colour. */
 fun categoryColor(category: String): Color = when (category) {
-    "Tech" -> Color(0xFF3B82F6)
+    "Tech", "Programming" -> Color(0xFF3B82F6)
     "Languages" -> Color(0xFF10B981)
     "Design" -> Color(0xFFEC4899)
     "Music" -> Color(0xFFF97316)
+    "Fitness & Sport" -> Color(0xFF22C55E)
+    "Business & Study" -> Color(0xFFF59E0B)
+    "Cooking & Crafts", "Life" -> Color(0xFFEF4444)
     else -> Color(0xFF8B5CF6)
 }
 

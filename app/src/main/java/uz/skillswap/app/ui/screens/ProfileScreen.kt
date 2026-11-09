@@ -62,6 +62,7 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit) {
     val learning by vm.learning.collectAsStateWithLifecycle()
     val teaching by vm.teaching.collectAsStateWithLifecycle()
     val myOffers by vm.myOffers.collectAsStateWithLifecycle()
+    val sync by vm.sync.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
     val name = user?.fullName ?: ""
 
@@ -151,6 +152,20 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+            }
+
+            AppCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SectionTitle("Account")
+                    Text(if (sync.online) "☁️ Online account" else "📱 Saved on this phone only",
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        if (sync.online) "Synced with the SkillSwap server. The same e-mail and password work on the website."
+                        else "Works without internet. Log in while online to use your real SkillSwap account.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

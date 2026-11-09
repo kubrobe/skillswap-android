@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.skillswap.app.ui.SkillSwapViewModel
@@ -70,7 +71,14 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
             if (loading) CircularProgressIndicator(Modifier.height(24.dp), color = Color.White) else Text("Log in")
         }
         TextButton(onClick = onRegisterClick) { Text("No account? Register") }
-        Text("Demo account: aziza@demo.uz / demo123", style = MaterialTheme.typography.bodySmall,
+        if (loading) {
+            Text("Connecting to the SkillSwap server… the first login can take up to a minute while it wakes up.",
+                style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text("Demo account: aziza@demo.uz / demo12345", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Same account as on the website. Works offline too.", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -81,6 +89,7 @@ fun RegisterScreen(vm: SkillSwapViewModel, onRegistered: () -> Unit, onBack: () 
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var loading by rememberSaveable { mutableStateOf(false) }
 
     AuthLayout(title = "Create account", subtitle = "It takes 20 seconds") {
         OutlinedTextField(name, { name = it }, label = { Text("Full name") },
@@ -88,16 +97,26 @@ fun RegisterScreen(vm: SkillSwapViewModel, onRegistered: () -> Unit, onBack: () 
         OutlinedTextField(email, { email = it }, label = { Text("E-mail") },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-        OutlinedTextField(password, { password = it }, label = { Text("Password (min 6, 1 digit)") },
+        OutlinedTextField(password, { password = it }, label = { Text("Password (min 8, 1 digit)") },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
-            onClick = { vm.register(name, email, password) { err -> error = err; if (err == null) onRegistered() } },
+            onClick = {
+                loading = true
+                vm.register(name, email, password) { err ->
+                    loading = false
+                    error = err
+                    if (err == null) onRegistered()
+                }
+            },
+            enabled = !loading,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().height(54.dp)
-        ) { Text("Register") }
+        ) {
+            if (loading) CircularProgressIndicator(Modifier.height(24.dp), color = Color.White) else Text("Register")
+        }
         TextButton(onClick = onBack) { Text("I already have an account") }
     }
 }

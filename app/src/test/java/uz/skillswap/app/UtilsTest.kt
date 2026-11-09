@@ -12,6 +12,7 @@ import uz.skillswap.app.util.hasDuplicateSlots
 import uz.skillswap.app.util.memberLevel
 import uz.skillswap.app.util.nextLevelTarget
 import uz.skillswap.app.util.slotLabel
+import uz.skillswap.app.util.syncAgeText
 import uz.skillswap.app.util.weightedRating
 
 class UtilsTest {
@@ -69,5 +70,14 @@ class UtilsTest {
         assertEquals("Gold", memberLevel(5))
         assertEquals(2, nextLevelTarget(1)!!)
         assertTrue(nextLevelTarget(9) == null)
+    }
+
+    @Test fun syncAgeText_isShortAndFriendly() {
+        val now = 10_000_000_000L
+        assertEquals("not yet", syncAgeText(now, 0L))
+        assertEquals("just now", syncAgeText(now, now - 20_000L))
+        assertEquals("5 min ago", syncAgeText(now, now - 5 * 60_000L))
+        assertEquals("2 h ago", syncAgeText(now, now - 125 * 60_000L))
+        assertEquals("3 d ago", syncAgeText(now, now - 3 * 24 * 3_600_000L))
     }
 }

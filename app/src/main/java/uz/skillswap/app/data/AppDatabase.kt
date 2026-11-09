@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [User::class, Skill::class, Offer::class, TimeSlot::class, Booking::class, Review::class],
-    version = 1,
+    version = 2,              // 2: demo password is now demo12345 (same as the website)
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -15,6 +15,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun skillDao(): SkillDao
     abstract fun offerDao(): OfferDao
     abstract fun bookingDao(): BookingDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

@@ -22,6 +22,7 @@ import uz.skillswap.app.data.OfferCard
 import uz.skillswap.app.data.ReviewLine
 import uz.skillswap.app.data.Skill
 import uz.skillswap.app.data.SkillSwapRepository
+import uz.skillswap.app.data.SyncState
 import uz.skillswap.app.data.TimeSlot
 import uz.skillswap.app.data.User
 
@@ -33,6 +34,7 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     val ready: StateFlow<Boolean> = _ready.asStateFlow()     // true after start-up work
 
     val currentUser: StateFlow<User?> = repo.currentUser
+    val sync: StateFlow<SyncState> = repo.sync          // online / offline status for the screens
 
     // search + filter inputs from the Browse screen
     val query = MutableStateFlow("")
@@ -66,6 +68,7 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
             repo.seedIfEmpty()
             repo.restoreSession()
             _ready.value = true
+            repo.refresh()          // online account: download the newest data in the background
         }
     }
 
@@ -75,15 +78,19 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
 
     // onResult(null) = success, onResult("text") = error message to show
     fun login(email: String, password: String, onResult: (String?) -> Unit) = viewModelScope.launch {
-        onResult(repo.login(email, password).exceptionOrNull()?.message)
+        onResult(runCatching { repo.login(email, password).getOrThrow() }.exceptionOrNull()?.message)
     }
+
+    fun refresh() = viewModelScope.launch { repo.refresh() }
 
     fun register(name: String, email: String, password: String, onResult: (String?) -> Unit) =
         viewModelScope.launch {
-            onResult(repo.register(name, email, password).exceptionOrNull()?.message)
+            onResult(runCatching { repo.register(name, email, password).getOrThrow() }.exceptionOrNull()?.message)
         }
 
-    fun logout() = repo.logout()
+    fun logout() {
+        viewModelScope.launch { repo.logout() }
+    }
 
     fun updateProfile(name: String, bio: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         onResult(runCatching { repo.updateProfile(name, bio).getOrThrow() }.exceptionOrNull()?.message)

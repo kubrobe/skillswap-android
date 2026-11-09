@@ -43,10 +43,22 @@ fun nextLevelTarget(done: Int): Int? = when {
     else -> null
 }
 
+/** "just now", "5 min ago", "3 h ago", "2 d ago" for the sync status pill. */
+fun syncAgeText(nowMillis: Long, thenMillis: Long): String {
+    if (thenMillis <= 0L) return "not yet"
+    val minutes = (nowMillis - thenMillis).coerceAtLeast(0L) / 60_000L
+    return when {
+        minutes < 1 -> "just now"
+        minutes < 60 -> "$minutes min ago"
+        minutes < 24 * 60 -> "${minutes / 60} h ago"
+        else -> "${minutes / (24 * 60)} d ago"
+    }
+}
+
 object Validators {
     private val emailRegex = Regex("^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$")
     fun isValidEmail(email: String) = emailRegex.matches(email.trim())
-    fun isStrongPassword(password: String) = password.length >= 6 && password.any { it.isDigit() }
+    fun isStrongPassword(password: String) = password.length >= 8 && password.any { it.isDigit() }
     fun isValidRating(rating: Int) = rating in 1..5
 }
 
