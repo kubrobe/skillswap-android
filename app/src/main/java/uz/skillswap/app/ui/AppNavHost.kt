@@ -88,6 +88,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import uz.skillswap.app.ui.components.ConfettiOverlay
 import uz.skillswap.app.ui.components.NoticeCard
 import uz.skillswap.app.ui.screens.DetailScreen
@@ -250,68 +251,91 @@ private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER)
 private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
 
 /**
- * Floating "liquid glass" tab bar (like iOS 26): a very transparent pill with a bright edge and a
- * glossy top highlight. The selected tab sits under a glass lens that slides with a spring and
- * STRETCHES while it moves, like a drop of liquid, then settles back to its round shape.
+ * Floating "liquid glass" tab bar: real blur of the content behind it (Haze), a glossy edge, and a
+ * glass lens that springs to the selected tab and stretches while it moves.
+ *
+ * PERFORMANCE: every animated value is read only inside offset { } / graphicsLayer { } lambdas.
+ * Those run in the layout/draw step, so an animation frame never re-composes the bar.
  */
 @Composable
 private fun GlassTabBar(hazeState: HazeState, currentRoute: String?, onSelect: (String) -> Unit) {
     val selectedIndex = tabs.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     val dark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(34.dp)
-    // Frosted glass: what scrolls under the bar is BLURRED (Android 12+), then tinted.
-    // Older phones cannot blur cheaply, so Haze draws the more solid fallback tint instead.
-    val frost = HazeStyle(
-        backgroundColor = MaterialTheme.colorScheme.background,
-        tints = listOf(HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.55f))),
-        blurRadius = 26.dp,
-        noiseFactor = 0.06f,
-        fallbackTint = HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.94f))
-    )
-    val edge = Brush.linearGradient(
-        listOf(Color.White.copy(alpha = if (dark) 0.55f else 0.95f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = if (dark) 0.25f else 0.6f))
-    )
+    val lensShape = RoundedCornerShape(28.dp)
+    val frost = remember(dark) {
+        HazeStyle(
+            backgroundColor = if (dark) Color(0xFF0D0E1A) else Color(0xFFF6F7FB),
+            tints = listOf(HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.50f) else Color.White.copy(alpha = 0.60f))),
+            blurRadius = 22.dp,
+            noiseFactor = 0.05f,
+            fallbackTint = HazeTint(if (dark) Color(0xFF15172A).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.95f))
+        )
+    }
+    val edge = remember(dark) {
+        Brush.linearGradient(listOf(Color.White.copy(alpha = if (dark) 0.50f else 0.95f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = if (dark) 0.22f else 0.6f)))
+    }
+    val gloss = remember(dark) { Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.12f else 0.30f), Color.Transparent)) }
+    val lensFill = remember { Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.70f), BrandEnd.copy(alpha = 0.60f))) }
+    val lensGloss = remember { Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.Transparent)) }
+    val lensEdge = remember { BorderStroke(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f)))) }
+
+    // the lens position as a fraction of the bar: 0 = first tab, 3 = last tab
+    val lens = animateFloatAsState(selectedIndex.toFloat(), spring(dampingRatio = 0.7f, stiffness = 340f), label = "lens")
+
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
         BoxWithConstraints(
             Modifier.fillMaxWidth().height(66.dp)
-                .shadow(10.dp, shape)
+                .shadow(8.dp, shape)
                 .clip(shape)
                 .hazeEffect(state = hazeState, style = frost)
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.14f else 0.35f), Color.Transparent)))
+                .background(gloss)
                 .border(BorderStroke(1.2.dp, edge), shape)
         ) {
             val itemWidth = maxWidth / tabs.size
-            val target = itemWidth * selectedIndex
-            val x by animateDpAsState(target, spring(dampingRatio = 0.68f, stiffness = 320f), label = "lensX")
-            // the further the lens still has to travel, the more it stretches (liquid feel)
-            val stretch = 1f + ((target - x).value / itemWidth.value).let { kotlin.math.abs(it) }.coerceAtMost(1f) * 0.45f
             Box(
-                Modifier.offset(x = x).width(itemWidth).fillMaxHeight().padding(5.dp)
-                    .graphicsLayer { scaleX = stretch; scaleY = 1f / kotlin.math.sqrt(stretch) }
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(listOf(BrandStart.copy(alpha = 0.55f), BrandEnd.copy(alpha = 0.45f))))
-                    .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.30f), Color.Transparent)))
-                    .border(BorderStroke(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f)))), RoundedCornerShape(28.dp))
+                Modifier
+                    .width(itemWidth)
+                    .fillMaxHeight()
+                    .offset { IntOffset((itemWidth.toPx() * lens.value).roundToInt(), 0) }
+                    .graphicsLayer {
+                        // the further it still has to go, the more it stretches - like a drop of liquid
+                        val stretch = 1f + kotlin.math.abs(selectedIndex - lens.value).coerceAtMost(1f) * 0.45f
+                        scaleX = stretch
+                        scaleY = 1f / kotlin.math.sqrt(stretch)
+                    }
+                    .padding(5.dp)
+                    .clip(lensShape)
+                    .background(lensFill)
+                    .background(lensGloss)
+                    .border(lensEdge, lensShape)
             )
             Row(Modifier.fillMaxSize()) {
                 tabs.forEachIndexed { i, tab ->
-                    val selected = i == selectedIndex
-                    val pop by animateFloatAsState(if (selected) 1.15f else 1f, spring(dampingRatio = 0.42f, stiffness = 520f), label = "tabIcon")
-                    val lift by animateDpAsState(if (selected) (-1).dp else 0.dp, spring(dampingRatio = 0.5f, stiffness = 400f), label = "tabLift")
-                    val tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    Column(
-                        Modifier.weight(1f).fillMaxHeight()
-                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(tab.route) },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(tab.icon, contentDescription = tab.label, tint = tint,
-                            modifier = Modifier.offset(y = lift).size(22.dp).graphicsLayer { scaleX = pop; scaleY = pop })
-                        Text(tab.label, style = MaterialTheme.typography.labelSmall, color = tint)
-                    }
+                    TabItem(tab, selected = i == selectedIndex, modifier = Modifier.weight(1f)) { onSelect(tab.route) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TabItem(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val pop = animateFloatAsState(if (selected) 1.15f else 1f, spring(dampingRatio = 0.45f, stiffness = 520f), label = "tabIcon")
+    val tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    Column(
+        modifier.fillMaxHeight()
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(tab.icon, contentDescription = tab.label, tint = tint,
+            modifier = Modifier.size(22.dp).graphicsLayer {
+                scaleX = pop.value
+                scaleY = pop.value
+                translationY = (1f - pop.value) * 8f          // a small lift while it pops
+            })
+        Text(tab.label, style = MaterialTheme.typography.labelSmall, color = tint)
     }
 }
 

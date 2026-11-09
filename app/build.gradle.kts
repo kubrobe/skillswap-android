@@ -19,8 +19,13 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 optimises and shrinks the code: Compose runs MUCH smoother than in a debug build
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Lets you run the release build from Android Studio to test real speed.
+            // "Generate Signed App Bundle / APK" still signs the final APK with YOUR keystore.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
