@@ -4,8 +4,11 @@ Trade skills, not bills. Students teach a skill they know and book lessons from 
 
 Kotlin + Jetpack Compose (Material 3) + Room (local cache) + MVVM. The app is always online and shares its backend and database with the SkillSwap website ([skillswap](https://github.com/kubrobe/skillswap)).
 
-<!-- Screenshots: add 3-4 PNGs to docs/screenshots/ and show them here, e.g.
-![Browse](docs/screenshots/browse.png) -->
+## Screenshots
+
+| Browse | My lessons | Teach a skill | Profile |
+|---|---|---|---|
+| <img src="docs/screenshots/browse.jpg" width="200" alt="Browse screen with search, live ticker and perfect matches"> | <img src="docs/screenshots/lessons.jpg" width="200" alt="My lessons screen with check-in, video, calendar and AI plan"> | <img src="docs/screenshots/teach.jpg" width="200" alt="Teach a skill screen"> | <img src="docs/screenshots/profile.jpg" width="200" alt="Profile screen with stats, reputation and member level"> |
 
 ## Team
 
