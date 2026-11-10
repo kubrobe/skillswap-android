@@ -9,6 +9,21 @@ import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedScroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedScroll.NestedScrollSource
+import androidx.compose.ui.input.nestedScroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -124,7 +139,32 @@ fun HomeScreen(
     var editingWants by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
-    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = bottomBarSpace())) {
+    val focusManager = LocalFocusManager.current
+
+    // While the user is searching, the extras (ticker, swipe banner, matches) fold away so the results
+    // slide up right under the search field instead of sitting far below it.
+    val searching = query.isNotBlank()
+
+    // The list shrinks to the area above the keyboard, so results are never hidden behind it.
+    val ime = WindowInsets.ime
+    val density = LocalDensity.current
+    val imeVisible by remember { derivedStateOf { ime.getBottom(density) > 0 } }
+
+    // Dragging the list closes the keyboard (only a finger drag, not scrolls the app does itself).
+    val closeKeyboardOnDrag = remember(focusManager) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y != 0f) focusManager.clearFocus()
+                return Offset.Zero
+            }
+        }
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize().imePadding().nestedScroll(closeKeyboardOnDrag),
+        state = listState,
+        contentPadding = PaddingValues(bottom = if (imeVisible) 16.dp else bottomBarSpace())
+    ) {
         item {
             // iOS-style parallax: the header moves up slower than the list and fades out
             GradientHeader(Modifier.graphicsLayer {
@@ -140,8 +180,14 @@ fun HomeScreen(
                     Spacer(Modifier.width(8.dp))
                     wallet?.let { w -> CreditsChip(w.balance) }
                 }
-                Text(tr.whatToLearn, style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.85f))
+                AnimatedVisibility(
+                    visible = !searching,
+                    enter = expandVertically(tween(260)) + fadeIn(tween(260)),
+                    exit = shrinkVertically(tween(260)) + fadeOut(tween(160))
+                ) {
+                    Text(tr.whatToLearn, style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.85f))
+                }
                 Spacer(Modifier.height(12.dp))
                 TextField(
                     value = query,
@@ -159,6 +205,9 @@ fun HomeScreen(
                         }
                     },
                     singleLine = true,
+                    // the keyboard's action key becomes a search key that closes the keyboard
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     shape = RoundedCornerShape(18.dp),
                     // glass search field: white frost on the purple header
                     colors = TextFieldDefaults.colors(
@@ -183,7 +232,13 @@ fun HomeScreen(
             }
         }
         if (activity.isNotEmpty()) {
-            item { LiveTicker(activity, onImpact) }
+            item {
+                AnimatedVisibility(
+                    visible = !searching,
+                    enter = expandVertically(tween(300)) + fadeIn(tween(300)),
+                    exit = shrinkVertically(tween(300)) + fadeOut(tween(180))
+                ) { LiveTicker(activity, onImpact) }
+            }
         }
         item {
             LazyRow(
@@ -194,12 +249,24 @@ fun HomeScreen(
                 items(categories) { c -> Pill(c, selected == c, { vm.category.value = c }) }
             }
         }
-        item { SwipeBanner(onSwipe) }
         item {
-            MatchesSection(
-                matches = matches, hasWants = wants.isNotEmpty(),
-                onOpen = onOfferClick, onEditWants = { editingWants = true }
-            )
+            AnimatedVisibility(
+                visible = !searching,
+                enter = expandVertically(tween(300)) + fadeIn(tween(300)),
+                exit = shrinkVertically(tween(300)) + fadeOut(tween(180))
+            ) { SwipeBanner(onSwipe) }
+        }
+        item {
+            AnimatedVisibility(
+                visible = !searching,
+                enter = expandVertically(tween(300)) + fadeIn(tween(300)),
+                exit = shrinkVertically(tween(300)) + fadeOut(tween(180))
+            ) {
+                MatchesSection(
+                    matches = matches, hasWants = wants.isNotEmpty(),
+                    onOpen = onOfferClick, onEditWants = { editingWants = true }
+                )
+            }
         }
         item {
             Text(
@@ -215,8 +282,9 @@ fun HomeScreen(
             }
         }
         itemsIndexed(offers, key = { _, o -> o.offerId }) { index, o ->
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
-                StaggerIn(index) { OfferRow(o) { onOfferClick(o.offerId) } }
+            // animateItem: rows glide to their new place when others appear or disappear
+            Column(Modifier.animateItem().padding(horizontal = 16.dp, vertical = 5.dp)) {
+                StaggerIn(index) { OfferRow(o, highlight = query) { onOfferClick(o.offerId) } }
             }
         }
     }
@@ -230,14 +298,15 @@ fun HomeScreen(
     }
 }
 
+/** [highlight] is the current search text: the matching part of the skill name is shown in gold. */
 @Composable
-fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
+fun OfferRow(offer: OfferCard, highlight: String = "", onClick: () -> Unit) {
     val tr = LocalStrings.current
     AppCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             SkillTile(offer.skillName, offer.category)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(offer.skillName, style = MaterialTheme.typography.titleMedium,
+                Text(highlightMatch(offer.skillName, highlight, Gold), style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     buildAnnotatedString {
@@ -256,6 +325,19 @@ fun OfferRow(offer: OfferCard, onClick: () -> Unit) {
                     fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+}
+
+/** [text] with the first occurrence of [query] (ignoring upper/lower case) in [color] and bold. */
+private fun highlightMatch(text: String, query: String, color: Color) = buildAnnotatedString {
+    val q = query.trim()
+    val at = if (q.isEmpty()) -1 else text.indexOf(q, ignoreCase = true)
+    if (at < 0) {
+        append(text)
+    } else {
+        append(text.substring(0, at))
+        withStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold)) { append(text.substring(at, at + q.length)) }
+        append(text.substring(at + q.length))
     }
 }
 

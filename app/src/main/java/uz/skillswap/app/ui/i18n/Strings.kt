@@ -99,7 +99,7 @@ open class Strings {
     open val noMatches = "Nobody teaches your wishes yet. Try other skills!"
     open fun perfectSwap(skill: String) = "🔁 Perfect swap! They want your $skill"
     open val teachesYourWish = "Teaches what you want to learn"
-    open fun skillsAvailable(n: Int) = "$n skills available"
+    open fun skillsAvailable(n: Int) = if (n == 1) "1 skill available" else "$n skills available"
     open val nothingFound = "Nothing found"
     open val nothingFoundHint = "Try another word or choose a different category."
     open fun byTeacher(name: String) = "by $name"
