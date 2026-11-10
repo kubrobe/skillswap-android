@@ -151,10 +151,13 @@ fun HomeScreen(
     val imeVisible by remember { derivedStateOf { ime.getBottom(density) > 0 } }
 
     // Dragging the list closes the keyboard (only a finger drag, not scrolls the app does itself).
-    val closeKeyboardOnDrag = remember(focusManager) {
+    val closeKeyboardOnDrag = remember(focusManager, ime, density) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && available.y != 0f) focusManager.clearFocus()
+                // only do any work while the keyboard is actually open (not on every normal scroll)
+                if (source == NestedScrollSource.UserInput && available.y != 0f && ime.getBottom(density) > 0) {
+                    focusManager.clearFocus()
+                }
                 return Offset.Zero
             }
         }
@@ -282,8 +285,8 @@ fun HomeScreen(
             }
         }
         itemsIndexed(offers, key = { _, o -> o.offerId }) { index, o ->
-            // animateItem: rows glide to their new place when others appear or disappear
-            Column(Modifier.animateItem().padding(horizontal = 16.dp, vertical = 5.dp)) {
+            // animateItem (rows glide when others appear/disappear) only while searching, so normal scrolling stays light
+            Column((if (searching) Modifier.animateItem() else Modifier).padding(horizontal = 16.dp, vertical = 5.dp)) {
                 StaggerIn(index) { OfferRow(o, highlight = query) { onOfferClick(o.offerId) } }
             }
         }
