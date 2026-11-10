@@ -18,9 +18,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedScroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedScroll.NestedScrollSource
-import androidx.compose.ui.input.nestedScroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
