@@ -5,6 +5,7 @@ import uz.skillswap.app.ui.i18n.Strings
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -189,22 +190,22 @@ fun AppNavHost(vm: SkillSwapViewModel) {
             enterTransition = {
                 if (targetState.destination.route in MODAL) slideInVertically(modalSpring) { it }
                 else if (targetState.destination.route in PUSHED) slideInHorizontally(pushSpring) { it }
-                else fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f)
+                else tabEnter
             },
             exitTransition = {
                 if (targetState.destination.route in MODAL) fadeOut(tween(300), targetAlpha = 0.5f)
                 else if (targetState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { -it / 4 } + fadeOut(tween(300), targetAlpha = 0.6f)
-                else fadeOut(tween(150))
+                else tabExit
             },
             popEnterTransition = {
                 if (initialState.destination.route in MODAL) fadeIn(tween(300), initialAlpha = 0.5f)
                 else if (initialState.destination.route in PUSHED) slideInHorizontally(pushSpring) { -it / 4 } + fadeIn(tween(300), initialAlpha = 0.6f)
-                else fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.97f)
+                else tabEnter
             },
             popExitTransition = {
                 if (initialState.destination.route in MODAL) slideOutVertically(modalSpring) { it }
                 else if (initialState.destination.route in PUSHED) slideOutHorizontally(pushSpring) { it }
-                else fadeOut(tween(150))
+                else tabExit
             }
         ) {
             composable(Routes.LOGIN) {
@@ -304,6 +305,14 @@ private const val GLASS_BLUR = false
 private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT, Routes.GALAXY, Routes.ACHIEVEMENTS)
 /** Screens that slide up from the bottom like an iPhone sheet. */
 private val MODAL = setOf(Routes.SWIPE, Routes.ASK)
+/**
+ * Switching tabs: the old screen fades out quickly, the new one fades in while rising a few pixels.
+ * PERFORMANCE: the old zoom (scaleIn 0.97 -> 1) made the phone re-draw every pixel of the whole screen on
+ * every frame, right when the new screen was being built - that was the stutter on the tab bar.
+ * Fading and moving are almost free (the screen is drawn once and only moved / made transparent).
+ */
+private val tabEnter = fadeIn(tween(200, delayMillis = 50)) + slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it / 40 }
+private val tabExit = fadeOut(tween(110))
 private val pushSpring = spring<IntOffset>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
 private val modalSpring = spring<IntOffset>(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)
 
