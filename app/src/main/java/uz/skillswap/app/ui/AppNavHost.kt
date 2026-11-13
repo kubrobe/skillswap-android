@@ -175,7 +175,7 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     // Everything inside this Box is the "source" the tab bar blurs (background glow + screens).
     val hazeState = rememberHazeState()
     Box(Modifier.fillMaxSize()) {
-    Box(Modifier.fillMaxSize().hazeSource(state = hazeState)) {
+    Box(Modifier.fillMaxSize().then(if (GLASS_BLUR) Modifier.hazeSource(state = hazeState) else Modifier)) {
     GlassBackground()                    // soft colour glow behind every screen
     Scaffold(
         containerColor = Color.Transparent,
@@ -294,6 +294,12 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     }
 }
 
+/**
+ * Real background blur behind the tab bar (Haze). Off: blurring the full screen every frame made scrolling
+ * stutter on normal phones. Set to true to bring the blur back (fine on flagship phones).
+ */
+private const val GLASS_BLUR = false
+
 /** Screens that slide in like an iPhone "push"; everything else fades. */
 private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT, Routes.GALAXY, Routes.ACHIEVEMENTS)
 /** Screens that slide up from the bottom like an iPhone sheet. */
@@ -326,6 +332,7 @@ private fun GlassTabBar(hazeState: HazeState, currentRoute: String?, onSelect: (
     val edge = remember(dark) {
         Brush.linearGradient(listOf(Color.White.copy(alpha = if (dark) 0.50f else 0.95f), Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = if (dark) 0.22f else 0.6f)))
     }
+    val solidGlass = if (dark) Color(0xFF1B1D23).copy(alpha = 0.96f) else Color.White.copy(alpha = 0.96f)
     val gloss = remember(dark) { Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.12f else 0.30f), Color.Transparent)) }
     val lensFill = remember { Brush.linearGradient(listOf(GoldPrimary.copy(alpha = 0.92f), GoldDeep.copy(alpha = 0.85f))) }
     val lensGloss = remember { Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.Transparent)) }
@@ -339,7 +346,9 @@ private fun GlassTabBar(hazeState: HazeState, currentRoute: String?, onSelect: (
             Modifier.fillMaxWidth().height(66.dp)
                 .shadow(8.dp, shape)
                 .clip(shape)
-                .hazeEffect(state = hazeState, style = frost)
+                // PERFORMANCE: the live blur copied and blurred the WHOLE screen on every scrolled frame
+                // (the main cause of stutter on mid-range phones). The frosted colour looks almost the same.
+                .then(if (GLASS_BLUR) Modifier.hazeEffect(state = hazeState, style = frost) else Modifier.background(solidGlass))
                 .background(gloss)
                 .border(BorderStroke(1.2.dp, edge), shape)
         ) {

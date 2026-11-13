@@ -137,6 +137,15 @@ fun HomeScreen(
     val activity by vm.activity.collectAsStateWithLifecycle()
     val tr = LocalStrings.current
     var editingWants by remember { mutableStateOf(false) }
+    // The search box keeps its own text (instant typing); the list query follows it.
+    // (A TextField fed from a StateFlow updates one frame late and can drop letters when typing fast.)
+    var searchText by remember { mutableStateOf(vm.query.value) }
+    // Rows animate in only when the screen opens, not again when you scroll back up
+    var entering by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(900)
+        entering = false
+    }
 
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
@@ -193,14 +202,14 @@ fun HomeScreen(
                 }
                 Spacer(Modifier.height(12.dp))
                 TextField(
-                    value = query,
-                    onValueChange = { vm.query.value = it },
+                    value = searchText,
+                    onValueChange = { searchText = it; vm.query.value = it },
                     placeholder = { Text(tr.searchHint, maxLines = 1) },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     trailingIcon = {
                         // empty search: a mic for the AI matchmaker; while typing: clear
-                        if (query.isNotEmpty()) {
-                            IconButton(onClick = { vm.query.value = "" }) {
+                        if (searchText.isNotEmpty()) {
+                            IconButton(onClick = { searchText = ""; vm.query.value = "" }) {
                                 Icon(Icons.Filled.Close, contentDescription = tr.clearSearch)
                             }
                         } else {
@@ -284,10 +293,10 @@ fun HomeScreen(
                 EmptyState("search", tr.nothingFound, tr.nothingFoundHint)
             }
         }
-        itemsIndexed(offers, key = { _, o -> o.offerId }) { index, o ->
+        itemsIndexed(offers, key = { _, o -> o.offerId }, contentType = { _, _ -> "offer" }) { index, o ->
             // animateItem (rows glide when others appear/disappear) only while searching, so normal scrolling stays light
             Column((if (searching) Modifier.animateItem() else Modifier).padding(horizontal = 16.dp, vertical = 5.dp)) {
-                StaggerIn(index) { OfferRow(o, highlight = query) { onOfferClick(o.offerId) } }
+                StaggerIn(index, enabled = entering) { OfferRow(o, highlight = query) { onOfferClick(o.offerId) } }
             }
         }
     }
