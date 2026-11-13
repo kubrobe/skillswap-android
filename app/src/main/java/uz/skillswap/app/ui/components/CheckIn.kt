@@ -42,6 +42,10 @@ import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.google.mlkit.common.MlKitException
+import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
+import androidx.compose.runtime.LaunchedEffect
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import uz.skillswap.app.util.checkinQrText
@@ -110,9 +114,20 @@ fun LearnerCheckInDialog(
         }
     }
 
+    // Google's scanner is not inside our app: Google Play services downloads it the first time it is needed.
+    // For an app not installed from the Play Store nobody asked for it, so the first "Scan" failed and the
+    // camera never opened. Ask for the download as soon as this dialog opens, so it is ready by the tap.
+    val scanner = remember {
+        GmsBarcodeScanning.getClient(context, GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build())
+    }
+    fun requestScannerDownload() {
+        ModuleInstall.getClient(context).installModules(ModuleInstallRequest.newBuilder().addApi(scanner).build())
+    }
+    LaunchedEffect(Unit) { requestScannerDownload() }
+
     fun scan() {
-        val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-        GmsBarcodeScanning.getClient(context, options).startScan()
+        error = null
+        scanner.startScan()
             .addOnSuccessListener { barcode ->
                 val found = parseCheckinQr(barcode.rawValue ?: "", bookingId)
                 if (found != null) {
@@ -122,7 +137,15 @@ fun LearnerCheckInDialog(
                     error = tr.notThisQr
                 }
             }
-            .addOnFailureListener { error = tr.scannerUnavailable }
+            .addOnFailureListener { e ->
+                if (e is MlKitException && e.errorCode == MlKitException.UNAVAILABLE) {
+                    // still downloading: ask again and tell the learner to wait a moment
+                    requestScannerDownload()
+                    error = tr.scannerDownloading
+                } else {
+                    error = tr.scannerUnavailable + (e.message?.let { " ($it)" } ?: "")
+                }
+            }
     }
 
     AlertDialog(

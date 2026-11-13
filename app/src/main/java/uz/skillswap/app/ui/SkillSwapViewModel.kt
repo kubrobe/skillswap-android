@@ -148,6 +148,20 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
         onResult(error)
     }
 
+    // Sign in with Google: the button appears only when the server has a Google client id
+    private val _googleClientId = MutableStateFlow<String?>(null)
+    val googleClientId: StateFlow<String?> = _googleClientId.asStateFlow()
+    fun loadGoogleConfig() {
+        if (_googleClientId.value == null) viewModelScope.launch { _googleClientId.value = repo.googleClientId() }
+    }
+    init { loadGoogleConfig() }
+
+    fun loginWithGoogle(idToken: String, onResult: (String?) -> Unit) = viewModelScope.launch {
+        val error = runCatching { repo.loginWithGoogle(idToken).getOrThrow() }.exceptionOrNull()?.message
+        if (error == null) startLive()
+        onResult(error)
+    }
+
     fun refresh() = viewModelScope.launch { repo.refresh() }
 
     /** The app came back to the screen (e.g. after switching apps). */

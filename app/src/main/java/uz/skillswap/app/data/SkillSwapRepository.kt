@@ -205,6 +205,17 @@ class SkillSwapRepository(
         }
     }
 
+    /** Sign in with Google (new accounts are made by the server, with welcome credits). */
+    suspend fun loginWithGoogle(idToken: String): Result<User> = try {
+        Result.success(startOnlineSession(api.googleLogin(idToken)))
+    } catch (e: ApiException) {
+        Result.failure(e)
+    } catch (e: OfflineException) {
+        Result.failure(e)
+    }
+
+    suspend fun googleClientId(): String? = try { api.googleClientId() } catch (e: Exception) { null }
+
     private suspend fun startOnlineSession(auth: AuthResult): User {
         saveToken(auth.token)
         prefs.edit().putLong(KEY_USER_ID, auth.user.id).apply()

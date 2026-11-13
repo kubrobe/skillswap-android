@@ -39,6 +39,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.GradientHeader
+import android.content.Context
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Canvas
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick: () -> Unit) {
@@ -50,6 +72,7 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
     val lang by vm.lang.collectAsStateWithLifecycle()
 
     AuthLayout(title = tr.welcomeBack, subtitle = tr.loginSubtitle) {
+        GoogleSignIn(vm, onError = { error = it }, onSignedIn = onLoggedIn)
         OutlinedTextField(
             value = email, onValueChange = { email = it }, label = { Text(tr.email) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
@@ -101,6 +124,7 @@ fun RegisterScreen(vm: SkillSwapViewModel, onRegistered: () -> Unit, onBack: () 
     val tr = LocalStrings.current
 
     AuthLayout(title = tr.createAccount, subtitle = tr.takes20s) {
+        GoogleSignIn(vm, onError = { error = it }, onSignedIn = onRegistered)
         OutlinedTextField(name, { name = it }, label = { Text(tr.fullName) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
         OutlinedTextField(email, { email = it }, label = { Text(tr.email) },
@@ -152,5 +176,95 @@ private fun AuthLayout(title: String, subtitle: String, content: @Composable () 
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             content()
         }
+    }
+}
+
+/**
+ * "Continue with Google" + an "or" line. Shown only when the server has a Google client id.
+ * Android's Credential Manager shows the Google account sheet; Google returns a signed ID token for our
+ * server's client id; the server checks it and logs in (or creates) the SkillSwap account.
+ * The same account works on the website (linked by the Google account and its verified email).
+ */
+@Composable
+private fun GoogleSignIn(vm: SkillSwapViewModel, onError: (String?) -> Unit, onSignedIn: () -> Unit) {
+    val clientId by vm.googleClientId.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.loadGoogleConfig() }       // the server may have been asleep at start-up
+    val id = clientId ?: return
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by rememberSaveable { mutableStateOf(false) }
+    val tr = LocalStrings.current
+
+    OutlinedButton(
+        onClick = {
+            busy = true
+            onError(null)
+            scope.launch {
+                val token = googleIdToken(context, id, onError)
+                if (token == null) { busy = false; return@launch }
+                vm.loginWithGoogle(token) { err ->
+                    busy = false
+                    onError(err)
+                    if (err == null) onSignedIn()
+                }
+            }
+        },
+        enabled = !busy,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = Modifier.fillMaxWidth().height(54.dp)
+    ) {
+        if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+        else {
+            GoogleG(Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(tr.continueGoogle, color = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        HorizontalDivider(Modifier.weight(1f))
+        Text(tr.orWord, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 12.dp))
+        HorizontalDivider(Modifier.weight(1f))
+    }
+}
+
+/** Opens the Google account sheet; returns the signed ID token, or null (cancelled / error shown). */
+private suspend fun googleIdToken(context: Context, serverClientId: String, onError: (String?) -> Unit): String? {
+    val option = GetSignInWithGoogleOption.Builder(serverClientId).build()
+    val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+    return try {
+        val credential = CredentialManager.create(context).getCredential(context, request).credential
+        if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+            GoogleIdTokenCredential.createFrom(credential.data).idToken
+        } else {
+            onError("Google sign-in failed. Please try again.")
+            null
+        }
+    } catch (e: GetCredentialCancellationException) {
+        null                                              // the person closed the sheet: no error
+    } catch (e: GetCredentialException) {
+        onError(e.message ?: "Google sign-in failed. Please try again.")
+        null
+    } catch (e: Exception) {
+        onError(e.message ?: "Google sign-in failed. Please try again.")
+        null
+    }
+}
+
+/** Google's four-colour "G", drawn with arcs (no image file needed). */
+@Composable
+private fun GoogleG(modifier: Modifier) {
+    Canvas(modifier) {
+        val w = size.width
+        val stroke = Stroke(width = w * 0.2f)
+        val inset = w * 0.1f
+        val box = Size(w - 2 * inset, w - 2 * inset)
+        val topLeft = Offset(inset, inset)
+        drawArc(Color(0xFFEA4335), 200f, 110f, false, topLeft, box, style = stroke)   // red, top
+        drawArc(Color(0xFFFBBC05), 135f, 65f, false, topLeft, box, style = stroke)    // yellow, left
+        drawArc(Color(0xFF34A853), 45f, 90f, false, topLeft, box, style = stroke)     // green, bottom
+        drawArc(Color(0xFF4285F4), 0f, 45f, false, topLeft, box, style = stroke)      // blue, right
+        drawRect(Color(0xFF4285F4), topLeft = Offset(w * 0.5f, w * 0.4f), size = Size(w * 0.4f, w * 0.2f))   // the bar
     }
 }

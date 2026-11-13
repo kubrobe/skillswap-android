@@ -101,6 +101,14 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
         auth(request("POST", "/register", null,
             JSONObject().put("fullName", fullName).put("email", email).put("password", password)))
 
+    /** Sign in with Google: the server checks Google's signed ID token and returns our own session token. */
+    suspend fun googleLogin(idToken: String): AuthResult =
+        auth(request("POST", "/google", null, JSONObject().put("idToken", idToken)))
+
+    /** The Google client id the server uses (null = Google sign-in is not set up: hide the button). */
+    suspend fun googleClientId(): String? =
+        request("GET", "/config", null).optString("googleClientId", "").takeIf { it.isNotBlank() && it != "null" }
+
     suspend fun logout(token: String) {
         request("POST", "/logout", token)
     }

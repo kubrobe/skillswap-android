@@ -61,6 +61,10 @@ dependencies {
     // Lesson check-in: ZXing draws the QR code, Google's code scanner reads it (no camera permission needed)
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    // Sign in with Google: Android's Credential Manager shows the Google account picker and returns a signed ID token
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     testImplementation(libs.junit)
 }
