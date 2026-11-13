@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
+import uz.skillswap.app.ui.components.BookedCelebration
 import uz.skillswap.app.ui.components.GradientHeader
 import uz.skillswap.app.ui.components.Green
 import uz.skillswap.app.ui.components.SectionTitle
@@ -171,27 +172,10 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     }
 
     bookedText?.let { text ->
-        BookedDialog(text = text, onDone = { bookedText = null; vm.celebrate(); vm.playCoin(-1); onBooked() })
+        BookedCelebration(
+            skill = text.substringBefore('\n'), details = text.substringAfter('\n', ""),
+            onDone = { bookedText = null; vm.celebrate(); vm.playCoin(-1); onBooked() }
+        )
     }
 }
 
-/** Success feedback after a booking: a green circle pops in with a check mark. */
-@Composable
-private fun BookedDialog(text: String, onDone: () -> Unit) {
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { shown = true }
-    val scale by animateFloatAsState(if (shown) 1f else 0f, tween(300), label = "check")
-    AlertDialog(
-        onDismissRequest = onDone,
-        icon = {
-            Box(
-                Modifier.size(64.dp).graphicsLayer { scaleX = scale; scaleY = scale }
-                    .clip(CircleShape).background(Green),
-                contentAlignment = Alignment.Center
-            ) { AppIcon("check", size = 36.dp, tint = Color.White) }
-        },
-        title = { Text(LocalStrings.current.lessonBooked, textAlign = TextAlign.Center) },
-        text = { Text(text, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
-        confirmButton = { TextButton(onClick = onDone) { Text(LocalStrings.current.seeMyLessons) } }
-    )
-}

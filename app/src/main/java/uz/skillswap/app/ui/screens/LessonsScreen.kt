@@ -62,6 +62,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import uz.skillswap.app.ui.components.RatingThanks
 import uz.skillswap.app.data.BookingLine
 import uz.skillswap.app.data.STATUS_BOOKED
 import uz.skillswap.app.data.STATUS_DONE
@@ -212,9 +214,12 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
         RateDialog(
             title = target.skillName,
             onDismiss = { rateTarget = null },
-            onSend = { stars, comment ->
-                vm.review(target.bookingId, stars, comment) { show(it) }
-                rateTarget = null
+            // the dialog stays open: on success it plays the "Thank you" stars, then closes by itself
+            onSend = { stars, comment, done ->
+                vm.review(target.bookingId, stars, comment) { err ->
+                    done(err)
+                    if (err == null) haptic.performHapticFeedback(HapticFeedbackType.LongPress) else show(err)
+                }
             }
         )
     }
@@ -293,15 +298,24 @@ private fun LessonCard(
 }
 
 @Composable
-private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, String) -> Unit) {
+private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, String, (String?) -> Unit) -> Unit) {
     var stars by remember { mutableStateOf(5) }
     var comment by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }   // no double send
+    var sent by remember { mutableStateOf(false) }
     val tr = LocalStrings.current
+    LaunchedEffect(sent) {
+        if (sent) {
+            delay(1800)
+            onDismiss()
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr.rateTitle(title)) },
+        title = { if (!sent) Text(tr.rateTitle(title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (sent) RatingThanks(stars)
+            else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row {
                     for (i in 1..5) {
                         TextButton(onClick = { stars = i }, contentPadding = PaddingValues(horizontal = 4.dp)) {
@@ -316,8 +330,18 @@ private fun RateDialog(title: String, onDismiss: () -> Unit, onSend: (Int, Strin
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSend(stars, comment) }) { Text(tr.send) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
+        confirmButton = {
+            if (!sent) {
+                TextButton(enabled = !sending, onClick = {
+                    sending = true
+                    onSend(stars, comment) { err ->
+                        sending = false
+                        if (err == null) sent = true
+                    }
+                }) { Text(tr.send) }
+            }
+        },
+        dismissButton = { if (!sent) TextButton(onClick = onDismiss) { Text(tr.close) } }
     )
 }
 

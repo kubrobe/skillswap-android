@@ -322,6 +322,10 @@ class SkillSwapRepository(
     fun seenBadges(userId: Long): Set<String>? = prefs.getStringSet("badges_$userId", null)?.toSet()
     fun saveSeenBadges(userId: Long, ids: Set<String>) = prefs.edit().putStringSet("badges_$userId", ids).apply()
 
+    /** The highest member level this phone already celebrated for a user; null = never stored (no fanfare). */
+    fun seenLevel(userId: Long): String? = prefs.getString("level_$userId", null)
+    fun saveSeenLevel(userId: Long, level: String) = prefs.edit().putString("level_$userId", level).apply()
+
     // ---------- Telegram bot ----------
     private fun requireToken(): String = token ?: throw IllegalStateException("Please log in first")
     suspend fun telegramStatus() = api.telegramStatus(requireToken())

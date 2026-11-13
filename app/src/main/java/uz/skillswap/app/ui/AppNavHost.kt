@@ -112,6 +112,7 @@ import uz.skillswap.app.ui.screens.RegisterScreen
 import uz.skillswap.app.ui.screens.SwipeScreen
 import uz.skillswap.app.ui.screens.TeachScreen
 import uz.skillswap.app.ui.components.CoinFlyOverlay
+import uz.skillswap.app.ui.components.LevelUpOverlay
 
 /** All screen addresses ("routes") in one place */
 object Routes {
@@ -290,6 +291,7 @@ fun AppNavHost(vm: SkillSwapViewModel) {
         NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
     }
     CoinFlyOverlay(vm.coins)
+    LevelUpOverlay(vm.levelUp, onShown = { vm.celebrate() })
     BadgeUnlockedOverlay(vm.badgeUnlocked, onShown = { vm.celebrate() })
     ConfettiOverlay(celebrate)
     }

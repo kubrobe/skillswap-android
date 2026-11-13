@@ -7,6 +7,8 @@ import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import kotlin.math.roundToInt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
@@ -138,11 +140,15 @@ fun StaggerIn(index: Int, enabled: Boolean = true, content: @Composable () -> Un
     }) { content() }
 }
 
-/** A number that counts up to its value. */
+/**
+ * A number that counts up to its value. It starts from 0 every time the screen opens (the old version
+ * started AT the value, so on screen nothing ever moved), then glides to any new value.
+ */
 @Composable
 fun CountUpText(target: Int, style: TextStyle, color: Color) {
-    val value by animateIntAsState(target, tween(700), label = "count")
-    Text("$value", style = style, color = color)
+    val value = remember { Animatable(0f) }
+    LaunchedEffect(target) { value.animateTo(target.toFloat(), tween(900, easing = FastOutSlowInEasing)) }
+    Text("${value.value.roundToInt()}", style = style, color = color)
 }
 
 // ---- glass look ----

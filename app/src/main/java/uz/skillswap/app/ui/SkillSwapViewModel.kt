@@ -44,6 +44,8 @@ import uz.skillswap.app.data.remote.Impact
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.Wallet
 import uz.skillswap.app.data.User
+import uz.skillswap.app.data.STATUS_DONE
+import uz.skillswap.app.util.memberLevel
 
 /** Holds screen state and survives screen rotation. Screens call its functions. */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -200,6 +202,35 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
             }
         }
     }
+
+    // "Level up!": finished lessons (learned + taught) moved me to a higher member level.
+    // Only after real data is in (lastSync > 0), and the first value ever is stored silently,
+    // so logging in on a new phone does not celebrate an old level.
+    private val _levelUp = MutableSharedFlow<String>(extraBufferCapacity = 2)
+    val levelUp: SharedFlow<String> = _levelUp.asSharedFlow()
+
+    init {
+        viewModelScope.launch {
+            combine(currentUser, sync) { u, s -> if (s.lastSync > 0L) u?.id else null }
+                .distinctUntilChanged()
+                .flatMapLatest { uid ->
+                    if (uid == null) flowOf<Pair<Long, Int>?>(null)
+                    else combine(repo.learning(uid), repo.teaching(uid)) { l, t ->
+                        uid to (l.count { it.status == STATUS_DONE } + t.count { it.status == STATUS_DONE })
+                    }
+                }
+                .distinctUntilChanged()
+                .collect { pair ->
+                    val (uid, done) = pair ?: return@collect
+                    val level = memberLevel(done)
+                    val seen = repo.seenLevel(uid)
+                    if (seen != null && levelRank(level) > levelRank(seen)) _levelUp.tryEmit(level)
+                    if (seen == null || levelRank(level) > levelRank(seen)) repo.saveSeenLevel(uid, level)
+                }
+        }
+    }
+
+    private fun levelRank(level: String) = listOf("Newcomer", "Bronze", "Silver", "Gold").indexOf(level)
 
     // Telegram bot (Profile card)
     private val _telegram = MutableStateFlow<TelegramStatus?>(null)

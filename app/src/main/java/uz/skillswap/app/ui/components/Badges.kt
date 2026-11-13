@@ -113,6 +113,8 @@ fun BadgeUnlockedOverlay(events: Flow<String>, onShown: () -> Unit) {
 
     LaunchedEffect(events) {
         events.collect { id ->
+            CelebrationLock.lock()      // wait if a "Level up!" is showing (they come together after a first lesson)
+            try {
             current = id
             skip = false
             onShown()
@@ -131,6 +133,9 @@ fun BadgeUnlockedOverlay(events: Flow<String>, onShown: () -> Unit) {
             }
             pop.animateTo(0f, tween(220))
             current = null
+            } finally {
+                CelebrationLock.unlock()
+            }
         }
     }
 

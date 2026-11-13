@@ -15,6 +15,8 @@ import uz.skillswap.app.ui.i18n.Strings
 import uz.skillswap.app.ui.i18n.LocalStrings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -154,11 +156,18 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
                     }
                     val target = nextLevelTarget(done)
                     if (target != null) {
-                        val progress by animateFloatAsState(
-                            (done.toFloat() / target).coerceIn(0f, 1f), tween(600), label = "levelProgress"
-                        )
+                        // fills from empty every time Profile opens, so you SEE how far you have come
+                        val fill = remember { Animatable(0f) }
+                        val goal = (done.toFloat() / target).coerceIn(0f, 1f)
+                        LaunchedEffect(goal) {
+                            delay(250)
+                            fill.animateTo(goal, tween(1100, easing = FastOutSlowInEasing))
+                        }
+                        Text(tr.lessonsToNext(target - done, tr.level(memberLevel(target))),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = if (level == "Newcomer") MaterialTheme.colorScheme.primary else levelColor(level))
                         LinearProgressIndicator(
-                            progress = { progress },
+                            progress = { fill.value },
                             modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                             color = if (level == "Newcomer") MaterialTheme.colorScheme.primary else levelColor(level),
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
