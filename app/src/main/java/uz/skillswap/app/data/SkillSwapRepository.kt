@@ -2,7 +2,12 @@ package uz.skillswap.app.data
 
 import android.content.SharedPreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -107,10 +112,33 @@ class SkillSwapRepository(
         if (_currentUser.value == null) refresh()      // empty cache (first start after an update): download now
     }
 
-    /** Download a fresh copy from the server. Safe to call any time; problems end up in [sync]. */
+    private val refreshing = AtomicBoolean(false)
+    @Volatile private var refreshAgain = false
+
+    /**
+     * Download a fresh copy from the server. Safe to call any time; problems end up in [sync].
+     * One download at a time: a call that arrives during a download is not lost (the old code dropped it,
+     * so a change made by someone else at that moment never showed up) - it runs once more afterwards.
+     */
     suspend fun refresh() {
+        if (token == null) return
+        if (!refreshing.compareAndSet(false, true)) { refreshAgain = true; return }
+        try {
+            do {
+                refreshAgain = false
+                refreshOnce()
+            } while (refreshAgain && token != null)
+        } finally {
+            refreshing.set(false)
+            // cancelled half-way (e.g. the app went to the background): never stay stuck in "syncing",
+            // which used to block every later refresh and the Retry button until the app was restarted
+            if (_sync.value.syncing) _sync.value = _sync.value.copy(syncing = false)
+        }
+        if (refreshAgain && token != null) refresh()
+    }
+
+    private suspend fun refreshOnce() {
         val t = token ?: return
-        if (_sync.value.syncing) return                 // one download at a time
         _sync.value = _sync.value.copy(syncing = true, problem = null)
         try {
             applySnapshot(api.sync(t))
@@ -229,18 +257,20 @@ class SkillSwapRepository(
     }
 
     // ---------- catalogue (always read from Room) ----------
+    // .distinctUntilChanged(): every sync rewrites all tables, so Room re-runs every query; only results that
+    // really changed reach the screens (before, every sync rebuilt every visible list).
     fun offers(query: String, category: String?): Flow<List<OfferCard>> =
-        db.offerDao().search(query.trim(), category)
+        db.offerDao().search(query.trim(), category).distinctUntilChanged()
 
-    fun categories(): Flow<List<String>> = db.skillDao().categories()
-    fun skills(): Flow<List<Skill>> = db.skillDao().observeAll()
-    fun offer(id: Long): Flow<OfferCard?> = db.offerDao().observeOffer(id)
-    fun slots(offerId: Long): Flow<List<TimeSlot>> = db.offerDao().observeSlots(offerId)
-    fun reviews(offerId: Long): Flow<List<ReviewLine>> = db.offerDao().observeReviews(offerId)
-    fun allOffers(): Flow<List<OfferCard>> = db.offerDao().search("", null)
-    fun myOffers(userId: Long): Flow<List<OfferCard>> = db.offerDao().observeMine(userId)
-    fun learning(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeLearning(userId)
-    fun teaching(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeTeaching(userId)
+    fun categories(): Flow<List<String>> = db.skillDao().categories().distinctUntilChanged()
+    fun skills(): Flow<List<Skill>> = db.skillDao().observeAll().distinctUntilChanged()
+    fun offer(id: Long): Flow<OfferCard?> = db.offerDao().observeOffer(id).distinctUntilChanged()
+    fun slots(offerId: Long): Flow<List<TimeSlot>> = db.offerDao().observeSlots(offerId).distinctUntilChanged()
+    fun reviews(offerId: Long): Flow<List<ReviewLine>> = db.offerDao().observeReviews(offerId).distinctUntilChanged()
+    fun allOffers(): Flow<List<OfferCard>> = db.offerDao().search("", null).distinctUntilChanged()
+    fun myOffers(userId: Long): Flow<List<OfferCard>> = db.offerDao().observeMine(userId).distinctUntilChanged()
+    fun learning(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeLearning(userId).distinctUntilChanged()
+    fun teaching(userId: Long): Flow<List<BookingLine>> = db.bookingDao().observeTeaching(userId).distinctUntilChanged()
 
     // ---------- changes: always on the server (it checks every rule in a transaction) ----------
     suspend fun createOffer(skillId: Long, level: String, description: String, slots: List<Pair<Int, Int>>): Long =
@@ -329,6 +359,8 @@ class SkillSwapRepository(
         while (true) {
             val t = token ?: return
             try {
+                coroutineScope {
+                var pending: Job? = null
                 api.listen(t) { type, data ->
                     when (type) {
                         "hello" -> {
@@ -336,7 +368,9 @@ class SkillSwapRepository(
                             if (_sync.value.problem != null) refresh()     // back online: clear the problem
                         }
                         "notice" -> { _notices.tryEmit(data.optString("text")) }
-                        "changed" -> refresh()
+                        // The server says "changed" to EVERY phone after ANY booking anywhere. Several often come
+                        // at once: wait a moment and download once, without blocking this event stream.
+                        "changed" -> if (pending?.isActive != true) pending = launch { delay(400); refresh() }
                         "credit" -> { _coins.tryEmit(data.optInt("amount", 1)) }
                         "activity" -> {
                             val line = ActivityLine(data.optString("text"), data.optLong("at", System.currentTimeMillis()))
@@ -344,6 +378,7 @@ class SkillSwapRepository(
                         }
                     }
                     Unit
+                }
                 }
             } catch (e: CancellationException) {
                 throw e

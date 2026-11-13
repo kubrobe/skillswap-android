@@ -99,6 +99,17 @@ fun IconText(
     overflow: TextOverflow = TextOverflow.Clip
 ) {
     val pieces = remember(text) { splitIcons(text) }
+    // PERFORMANCE: most texts (pills, names, levels) have no emoji at all - draw them as plain Text.
+    // Before, every row built a new map of icon lambdas on every recomposition, so Compose could never skip it.
+    val hasIcons = remember(pieces) { pieces.any { it.icon != null } }
+    if (!hasIcons) {
+        val plain = remember(pieces) { pieces.joinToString("") { it.text } }
+        Text(
+            plain, modifier = modifier, color = color, fontWeight = fontWeight, textAlign = textAlign,
+            maxLines = maxLines, overflow = overflow, style = style
+        )
+        return
+    }
     val tint = when {
         iconColor.isSpecified -> iconColor
         color.isSpecified -> color
@@ -112,12 +123,15 @@ fun IconText(
             }
         }
     }
-    val inline = HashMap<String, InlineTextContent>()
-    for (p in pieces) {
-        val id = p.icon ?: continue
-        inline["icon:$id"] = InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
-            Icon(SkillIcons.named(id), contentDescription = null, tint = tint, modifier = Modifier.fillMaxSize())
+    val inline = remember(pieces, tint) {
+        val map = HashMap<String, InlineTextContent>()
+        for (p in pieces) {
+            val id = p.icon ?: continue
+            map["icon:$id"] = InlineTextContent(Placeholder(1.15.em, 1.15.em, PlaceholderVerticalAlign.TextCenter)) {
+                Icon(SkillIcons.named(id), contentDescription = null, tint = tint, modifier = Modifier.fillMaxSize())
+            }
         }
+        map
     }
     Text(
         annotated, modifier = modifier, color = color, fontWeight = fontWeight, textAlign = textAlign,
