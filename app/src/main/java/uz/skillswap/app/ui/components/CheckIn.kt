@@ -118,16 +118,26 @@ fun LearnerCheckInDialog(
     // For an app not installed from the Play Store nobody asked for it, so the first "Scan" failed and the
     // camera never opened. Ask for the download as soon as this dialog opens, so it is ready by the tap.
     val scanner = remember {
-        GmsBarcodeScanning.getClient(context, GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build())
+        runCatching {
+            GmsBarcodeScanning.getClient(context, GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build())
+        }.getOrNull()
     }
+    // Best effort only: if Play services misbehaves here the dialog must still open (typing the code works).
     fun requestScannerDownload() {
-        ModuleInstall.getClient(context).installModules(ModuleInstallRequest.newBuilder().addApi(scanner).build())
+        try {
+            if (scanner == null) return
+            ModuleInstall.getClient(context.applicationContext)
+                .installModules(ModuleInstallRequest.newBuilder().addApi(scanner).build())
+                .addOnFailureListener { /* ignored: scan() reports the problem when it is tapped */ }
+        } catch (_: Throwable) { }
     }
     LaunchedEffect(Unit) { requestScannerDownload() }
 
     fun scan() {
         error = null
-        scanner.startScan()
+        try {
+            if (scanner == null) { error = tr.scannerUnavailable; return }
+            scanner.startScan()
             .addOnSuccessListener { barcode ->
                 val found = parseCheckinQr(barcode.rawValue ?: "", bookingId)
                 if (found != null) {
@@ -146,6 +156,9 @@ fun LearnerCheckInDialog(
                     error = tr.scannerUnavailable + (e.message?.let { " ($it)" } ?: "")
                 }
             }
+        } catch (e: Throwable) {
+            error = tr.scannerUnavailable + (e.message?.let { " ($it)" } ?: "")
+        }
     }
 
     AlertDialog(
