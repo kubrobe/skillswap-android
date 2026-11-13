@@ -1,6 +1,8 @@
 package uz.skillswap.app.ui
 
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.asSharedFlow
 import uz.skillswap.app.data.remote.Achievements
@@ -44,7 +46,7 @@ import uz.skillswap.app.data.remote.Wallet
 import uz.skillswap.app.data.User
 
 /** Holds screen state and survives screen rotation. Screens call its functions. */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
 
     private val _ready = MutableStateFlow(false)
@@ -97,8 +99,11 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     val query = MutableStateFlow("")
     val category = MutableStateFlow<String?>(null)
 
+    // PERFORMANCE: the search runs when typing pauses (150 ms), not once per letter. Each search re-sorts
+    // and re-animates the whole list, which made fast typing stutter.
     val offers: StateFlow<List<OfferCard>> =
-        combine(query, category) { q, c -> q to c }
+        combine(query.debounce { if (it.isEmpty()) 0L else 150L }, category) { q, c -> q.trim() to c }
+            .distinctUntilChanged()
             .flatMapLatest { (q, c) -> repo.offers(q, c) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

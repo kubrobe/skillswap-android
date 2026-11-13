@@ -49,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -114,10 +115,14 @@ fun Modifier.pressScale(source: InteractionSource): Modifier {
     }
 }
 
-/** List entrance: the first items fade and slide up one after another. Later items just appear. */
+/**
+ * List entrance: the first items fade and slide up one after another. Later items just appear.
+ * [enabled] = false after the screen's first moment: a LazyColumn forgets rows that scroll away, so
+ * without it the top rows played the entrance AGAIN (blank, then fading in) every time you scrolled back up.
+ */
 @Composable
-fun StaggerIn(index: Int, content: @Composable () -> Unit) {
-    var shown by remember { mutableStateOf(index >= 8) }
+fun StaggerIn(index: Int, enabled: Boolean = true, content: @Composable () -> Unit) {
+    var shown by remember { mutableStateOf(!enabled || index >= 8) }
     LaunchedEffect(Unit) {
         if (!shown) {
             delay(index * 45L)
@@ -150,9 +155,14 @@ fun glassFill(): Color =
 
 /** The light edge of a glass panel: brighter at the top-left, fading out. */
 @Composable
-fun glassBorder(): Brush =
-    if (isSystemInDarkTheme()) Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.05f)))
-    else Brush.linearGradient(listOf(Color.White, Color.White.copy(alpha = 0.35f)))
+fun glassBorder(): Brush {
+    // made once per theme, not again for every card that scrolls into view
+    val dark = isSystemInDarkTheme()
+    return remember(dark) {
+        if (dark) Brush.linearGradient(listOf(Color.White.copy(alpha = 0.32f), Color.White.copy(alpha = 0.05f)))
+        else Brush.linearGradient(listOf(Color.White, Color.White.copy(alpha = 0.35f)))
+    }
+}
 
 /**
  * The background of the whole app: three soft colour glows.
@@ -390,9 +400,12 @@ fun ConfettiOverlay(trigger: Int) {
             )
         }
     }
-    val t = progress.value
-    if (t >= 1f) return
+    // PERFORMANCE: progress is read only inside the Canvas (draw step), so the burst redraws without
+    // recomposing 60 times a second; "finished" flips once.
+    val finished by remember(trigger) { derivedStateOf { progress.value >= 1f } }
+    if (finished) return
     Canvas(Modifier.fillMaxSize()) {
+        val t = progress.value
         pieces.forEach { p ->
             val x = (p.x + p.vx * t) * size.width
             val y = (0.3f + p.vy * t + 1.25f * t * t) * size.height        // thrown up, then gravity
