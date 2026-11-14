@@ -84,6 +84,8 @@ import kotlinx.coroutines.launch
 import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
+import uz.skillswap.app.ui.components.Pill
+import uz.skillswap.app.ui.i18n.Lang
 import uz.skillswap.app.ui.components.SkillTile
 import uz.skillswap.app.ui.components.SmallPill
 import uz.skillswap.app.ui.components.StaggerIn
@@ -127,6 +129,12 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
     // true = Google's speech service failed on this phone before: use the in-app recognizer (Vosk)
     var useOffline by remember { mutableStateOf(voicePrefs.getBoolean("offline", false)) }
     var downloading by remember { mutableStateOf<Int?>(null) }   // voice pack download, 0..100
+    // The language you SPEAK, chosen right here (starts as the app language, remembered after that).
+    // Before, voice always used the app language, so with the app in English Uzbek speech was not understood.
+    var voiceLang by remember {
+        mutableStateOf(voicePrefs.getString("lang", null) ?: OfflineVoice.langFor(tr.speechLocale))
+    }
+    val voiceLocale = when (voiceLang) { "uz" -> "uz-UZ"; "ru" -> "ru-RU"; else -> "en-US" }
     var preparing by remember { mutableStateOf(false) }          // loading the voice pack into memory
 
     fun ask(words: String) {
@@ -153,7 +161,7 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
     fun openSystemVoice(): Boolean {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, tr.speechLocale)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, voiceLocale)
             .putExtra(RecognizerIntent.EXTRA_PROMPT, tr.askPrompt)
         return try {
             speech.launch(intent)
@@ -211,7 +219,7 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
     }
     startOffline = {
         scope.launch {
-            val lang = OfflineVoice.langFor(tr.speechLocale)
+            val lang = voiceLang
             if (!OfflineVoice.isInstalled(context, lang)) {
                 downloading = 0
                 val ok = try {
@@ -239,7 +247,7 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
     // Android shows its "Allow SkillSwap to record audio?" window; the answer comes back here
     /** Microphone allowed: start the best engine this phone has. */
     fun startVoice() {
-        if (useOffline || !VoiceInput.isAvailable(context)) startOffline() else voice.start(tr.speechLocale)
+        if (useOffline || !VoiceInput.isAvailable(context)) startOffline() else voice.start(voiceLocale)
     }
 
     val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -302,7 +310,23 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
             )
             Text(if (listening) tr.tapToFinish else if (downloading != null) tr.voiceDownloadOnce else tr.askExample, style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
+            // which language you will speak: English · Oʻzbekcha · Русский
+            Text(tr.speakIn, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Lang.entries.forEach { l ->
+                    Pill(l.label, voiceLang == l.code, {
+                        if (!listening && downloading == null && !preparing) {
+                            voiceLang = l.code
+                            voicePrefs.edit().putString("lang", l.code).apply()
+                            error = null
+                        }
+                    })
+                }
+            }
+            Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = text, onValueChange = { text = it.take(300) },
