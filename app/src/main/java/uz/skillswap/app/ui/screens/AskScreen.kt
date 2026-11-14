@@ -57,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -79,6 +80,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
@@ -90,6 +92,7 @@ import uz.skillswap.app.ui.i18n.LocalStrings
 import uz.skillswap.app.ui.theme.GoldDeep
 import uz.skillswap.app.ui.theme.GoldPrimary
 import uz.skillswap.app.ui.theme.OnGold
+import uz.skillswap.app.util.OfflineVoice
 import uz.skillswap.app.util.VoiceError
 import uz.skillswap.app.util.VoiceInput
 
@@ -102,7 +105,9 @@ private enum class AskState { Idle, Thinking, Done }
  * Voice, in this order (the first one that works on the phone):
  *  1. the app listens itself ([VoiceInput]): the words appear while you speak, the mic moves with your voice;
  *  2. the phone's own "Speak now" window (RecognizerIntent) - the only way before, missing on some phones;
- *  3. no speech engine at all: the screen says so and offers to install one.
+ *  3. Vosk, a speech recognizer INSIDE the app ([OfflineVoice]): works on phones without Google's
+ *     speech service. The first time it downloads a voice pack (~45 MB), then works offline.
+ * A phone where way 1 failed once goes straight to way 3 next time (remembered).
  */
 @Composable
 fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Unit) {
@@ -117,6 +122,12 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
     var listening by remember { mutableStateOf(false) }     // the microphone is open
     val level = remember { mutableFloatStateOf(0f) }        // how loud the voice is, 0..1
     var noEngine by remember { mutableStateOf(false) }      // this phone has no voice input at all
+    val scope = rememberCoroutineScope()
+    val voicePrefs = remember { context.getSharedPreferences("voice", android.content.Context.MODE_PRIVATE) }
+    // true = Google's speech service failed on this phone before: use the in-app recognizer (Vosk)
+    var useOffline by remember { mutableStateOf(voicePrefs.getBoolean("offline", false)) }
+    var downloading by remember { mutableStateOf<Int?>(null) }   // voice pack download, 0..100
+    var preparing by remember { mutableStateOf(false) }          // loading the voice pack into memory
 
     fun ask(words: String) {
         if (words.isBlank() || state == AskState.Thinking) return
@@ -158,17 +169,27 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
         text = words
         ask(words)
     }
+    // filled in below (it needs the offline engine, which needs these callbacks)
+    var startOffline: () -> Unit = {}
     val failedNow: (VoiceError) -> Unit = { problem ->
         error = when (problem) {
             VoiceError.NothingHeard -> tr.voiceNothing
             VoiceError.NoInternet -> tr.voiceNoInternet
-            // the engine inside the app cannot do it: try the phone's own window before giving up
-            VoiceError.NoLanguage -> if (openSystemVoice()) null else tr.voiceNoLanguage
-            VoiceError.NoPermission, VoiceError.Failed -> if (openSystemVoice()) null else tr.voiceFailed
+            // Google's speech service does not work on this phone: switch to the recognizer inside the app
+            VoiceError.NoLanguage, VoiceError.NoPermission, VoiceError.Failed -> {
+                useOffline = true
+                voicePrefs.edit().putBoolean("offline", true).apply()
+                startOffline()
+                null
+            }
         }
+    }
+    val offlineFailedNow: (VoiceError) -> Unit = { problem ->
+        error = if (problem == VoiceError.NothingHeard) tr.voiceNothing else tr.voiceFailed
     }
     val onHeard by rememberUpdatedState(heardNow)
     val onFailed by rememberUpdatedState(failedNow)
+    val onOfflineFailed by rememberUpdatedState(offlineFailedNow)
     val voice = remember {
         VoiceInput(
             context,
@@ -179,25 +200,62 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
             failed = { onFailed(it) }
         )
     }
-    DisposableEffect(Unit) { onDispose { voice.release() } }                  // leaving the screen frees the mic
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { voice.cancel() }          // so does leaving the app
+    val offline = remember {
+        OfflineVoice(
+            context,
+            listeningChanged = { listening = it },
+            partialText = { text = it.take(300) },
+            finalText = { onHeard(it.take(300)) },
+            failed = { onOfflineFailed(it) }
+        )
+    }
+    startOffline = {
+        scope.launch {
+            val lang = OfflineVoice.langFor(tr.speechLocale)
+            if (!OfflineVoice.isInstalled(context, lang)) {
+                downloading = 0
+                val ok = try {
+                    OfflineVoice.install(context, lang) { downloading = it }
+                    true
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    false
+                }
+                downloading = null
+                if (!ok) {
+                    error = tr.voiceDownloadFailed
+                    return@launch
+                }
+            }
+            preparing = true
+            offline.start(lang)
+            preparing = false
+        }
+    }
+    DisposableEffect(Unit) { onDispose { voice.release(); offline.release() } }   // leaving the screen frees the mic
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { voice.cancel(); offline.release() }   // so does leaving the app
 
     // Android shows its "Allow SkillSwap to record audio?" window; the answer comes back here
+    /** Microphone allowed: start the best engine this phone has. */
+    fun startVoice() {
+        if (useOffline || !VoiceInput.isAvailable(context)) startOffline() else voice.start(tr.speechLocale)
+    }
+
     val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) voice.start(tr.speechLocale)
+        if (granted) startVoice()
         else if (!openSystemVoice()) error = tr.micDenied       // the phone's own window needs no permission
     }
 
     fun listen() {
-        if (state == AskState.Thinking) return
+        if (state == AskState.Thinking || downloading != null || preparing) return
         error = null
         noEngine = false
         val micAllowed = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         when {
-            listening -> voice.stop()                           // second tap = "I have finished speaking"
-            !VoiceInput.isAvailable(context) -> if (!openSystemVoice()) noEngine = true
-            micAllowed -> voice.start(tr.speechLocale)
+            listening -> if (useOffline) offline.stop() else voice.stop()   // second tap = "I have finished"
+            micAllowed -> startVoice()
             else -> askMic.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
@@ -229,11 +287,20 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
                 IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = tr.close) }
             }
             Spacer(Modifier.height(18.dp))
-            MicButton(active = listening || state == AskState.Thinking, level = { level.floatValue },
+            MicButton(active = listening || preparing || downloading != null || state == AskState.Thinking,
+                level = { level.floatValue },
                 label = tr.speak) { listen() }
             Spacer(Modifier.height(14.dp))
-            Text(if (listening) tr.listening else tr.tapToSpeak, style = MaterialTheme.typography.titleMedium)
-            Text(if (listening) tr.tapToFinish else tr.askExample, style = MaterialTheme.typography.bodySmall,
+            Text(
+                when {
+                    downloading != null -> tr.voiceDownloading(downloading ?: 0)
+                    preparing -> tr.voicePreparing
+                    listening -> tr.listening
+                    else -> tr.tapToSpeak
+                },
+                style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center
+            )
+            Text(if (listening) tr.tapToFinish else if (downloading != null) tr.voiceDownloadOnce else tr.askExample, style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(18.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

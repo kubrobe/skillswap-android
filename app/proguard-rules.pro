@@ -9,3 +9,9 @@
 -keep class androidx.credentials.playservices.** {
   *;
 }
+
+# Vosk (offline voice) calls its native library through JNA, which finds classes and fields by name
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * extends com.sun.jna.** { public *; }
+-keep class org.vosk.** { *; }
+-dontwarn java.awt.**

@@ -27,8 +27,17 @@ jobs:
 
       - name: Unit tests and debug build
         run: |
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew --console=plain testDebugUnitTest assembleDebug
+          ./gradlew --console=plain testDebugUnitTest assembleDebug 2>&1 | tee build.log
+
+      # puts the compiler's error lines on the check run, so they show without opening the log
+      - name: Show what failed
+        if: failure()
+        run: |
+          grep -E '^e: |error:|What went wrong|Could not' -A2 build.log | head -30 | while IFS= read -r line; do
+            echo "::error::${line//%/%25}"
+          done
 
       - uses: actions/upload-artifact@v4
         with:

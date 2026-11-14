@@ -298,6 +298,10 @@ open class Strings {
     open val voiceNoLanguage = "Voice input on this phone does not know this language. Type instead."
     open val voiceFailed = "Voice input did not work this time. Try again or type instead."
     open val micDenied = "Allow the microphone to speak, or type instead."
+    open fun voiceDownloading(p: Int) = "Downloading voice pack… $p%"
+    open val voiceDownloadOnce = "Only the first time (about 45 MB), then voice works offline"
+    open val voicePreparing = "Getting ready…"
+    open val voiceDownloadFailed = "Could not download the voice pack. Check the internet and tap the mic again."
     open val noPicks = "No free lesson matches yet. Try other words."
     open val speak = "Speak"
 
@@ -605,6 +609,10 @@ object Uz : Strings() {
     override val voiceNoLanguage = "Bu telefondagi ovozli kiritish bu tilni bilmaydi. Yozib kiriting."
     override val voiceFailed = "Ovozli kiritish bu safar ishlamadi. Qayta urinib koʻring yoki yozib kiriting."
     override val micDenied = "Gapirish uchun mikrofonga ruxsat bering yoki yozib kiriting."
+    override fun voiceDownloading(p: Int) = "Ovoz paketi yuklanmoqda… $p%"
+    override val voiceDownloadOnce = "Faqat birinchi marta (taxminan 45 MB), keyin ovoz internetsiz ishlaydi"
+    override val voicePreparing = "Tayyorlanmoqda…"
+    override val voiceDownloadFailed = "Ovoz paketini yuklab boʻlmadi. Internetni tekshiring va mikrofonni yana bosing."
     override val noPicks = "Hozircha mos boʻsh dars yoʻq. Boshqa soʻzlarni sinab koʻring."
     override val speak = "Gapirish"
 
@@ -908,6 +916,10 @@ object Ru : Strings() {
     override val voiceNoLanguage = "Голосовой ввод на этом телефоне не знает этот язык. Напишите текстом."
     override val voiceFailed = "Голосовой ввод сейчас не сработал. Попробуйте ещё раз или напишите текстом."
     override val micDenied = "Разрешите доступ к микрофону или напишите текстом."
+    override fun voiceDownloading(p: Int) = "Загружаю голосовой пакет… $p%"
+    override val voiceDownloadOnce = "Только в первый раз (около 45 МБ), потом голос работает без интернета"
+    override val voicePreparing = "Готовлюсь…"
+    override val voiceDownloadFailed = "Не удалось загрузить голосовой пакет. Проверьте интернет и нажмите на микрофон ещё раз."
     override val noPicks = "Пока нет подходящих свободных уроков. Попробуйте другие слова."
     override val speak = "Говорить"
 
