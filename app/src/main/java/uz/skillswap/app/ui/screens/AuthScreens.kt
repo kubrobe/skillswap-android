@@ -70,6 +70,7 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
     var loading by rememberSaveable { mutableStateOf(false) }
     val tr = LocalStrings.current
     val lang by vm.lang.collectAsStateWithLifecycle()
+    val sync by vm.sync.collectAsStateWithLifecycle()      // carries "Your session expired" after a forced log-out
 
     AuthLayout(title = tr.welcomeBack, subtitle = tr.loginSubtitle) {
         GoogleSignIn(vm, onError = { error = it }, onSignedIn = onLoggedIn)
@@ -84,7 +85,7 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        (error ?: sync.problem)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
             onClick = {
                 loading = true

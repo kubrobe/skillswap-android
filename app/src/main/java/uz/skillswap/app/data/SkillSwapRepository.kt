@@ -2,6 +2,8 @@ package uz.skillswap.app.data
 
 import android.content.SharedPreferences
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -104,7 +106,10 @@ class SkillSwapRepository(
 
     // ---------- start-up ----------
     suspend fun restoreSession() {
-        if (token == null) return                       // not logged in
+        // PERFORMANCE: reading the saved token means opening the Android Keystore and decrypting, which can
+        // take a noticeable moment on a cold start. Do it on a background thread, not on the screen's thread.
+        val saved = withContext(Dispatchers.IO) { token }
+        if (saved == null) return                       // not logged in
         _sync.value = SyncState(online = true, lastSync = prefs.getLong(KEY_LAST_SYNC, 0L))
         _wallet.value = Wallet(prefs.getInt(KEY_BALANCE, 0), emptyList())    // until the first sync
         val id = prefs.getLong(KEY_USER_ID, -1)
@@ -247,10 +252,17 @@ class SkillSwapRepository(
 
     suspend fun logout() {
         val t = token
+        // Forget everything on the phone FIRST, then tell the server. The old order waited for the server
+        // (up to a minute when it is asleep) and only then cleared the phone: logging in again during
+        // that wait was wiped out the moment the old log-out finished.
+        forgetSession()
         if (t != null) {
             try { api.logout(t) } catch (e: Exception) { /* offline: the server session simply expires */ }
         }
-        db.syncDao().clearAll()                          // forget the downloaded copy
+    }
+
+    /** Removes the token and the downloaded copy from this phone. */
+    private suspend fun forgetSession() {
         saveToken(null)
         prefs.edit().remove(KEY_USER_ID).remove(KEY_LAST_SYNC).remove(KEY_BALANCE).apply()
         _sync.value = SyncState()
@@ -259,11 +271,12 @@ class SkillSwapRepository(
         _matches.value = emptyList()
         _activity.value = emptyList()
         _currentUser.value = null
+        db.syncDao().clearAll()                          // forget the downloaded copy
     }
 
-    /** The server no longer knows our token (expired or logged out elsewhere). */
+    /** The server no longer knows our token (expired or logged out elsewhere): back to the login screen. */
     private suspend fun expireSession() {
-        logout()
+        forgetSession()                                  // no server call: the token is already dead there
         _sync.value = SyncState(problem = SESSION_EXPIRED)
     }
 

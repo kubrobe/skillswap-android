@@ -3,6 +3,20 @@
 
     <!-- needed to talk to the SkillSwap server -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- voice matchmaker: the app listens with the phone's speech engine (asked only when the mic is tapped) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- Android 11+ hides other apps from us unless we name what we look for:
+         the speech engines (for the mic) and the phone's own "Speak now" window (the fallback). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
 
     <application
         android:name=".SkillSwapApp"
