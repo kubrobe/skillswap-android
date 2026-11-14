@@ -69,20 +69,29 @@ class OfflineVoice(
 
     /** Stop without a result, free the microphone. */
     fun release() {
+        if (listening) listeningChanged(false)
         listening = false
-        try { service?.shutdown() } catch (e: Exception) { }
-        try { recognizer?.close() } catch (e: Exception) { }
-        service = null
-        recognizer = null
+        closeAll()
     }
 
     private fun finish() {
         if (listening) listeningChanged(false)
         listening = false
+        closeAll()
+    }
+
+    /**
+     * CRASH FIX: the order matters. Vosk listens on its own thread, which keeps feeding sound to the
+     * recognizer. The first version freed the recognizer (native memory) while that thread was still
+     * running, so the next sound it fed crashed the whole app right after the words appeared.
+     * Now: 1) cancel() stops that thread and WAITS for it, 2) free the microphone, 3) free the recognizer.
+     */
+    private fun closeAll() {
         val s = service
         val r = recognizer
         service = null
         recognizer = null
+        try { s?.cancel() } catch (e: Exception) { }
         try { s?.shutdown() } catch (e: Exception) { }
         try { r?.close() } catch (e: Exception) { }
     }
