@@ -82,6 +82,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
@@ -156,6 +157,16 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     val celebrate by vm.celebrate.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
     val user by vm.currentUser.collectAsStateWithLifecycle()
+
+    // The session ended without the user tapping "Log out" (the server no longer accepts our token).
+    // Before, the app stayed on an empty Browse screen with no way forward; now it goes to the login
+    // screen, which shows "Your session expired".
+    LaunchedEffect(user) {
+        val route = nav.currentDestination?.route
+        if (user == null && route != null && route != Routes.LOGIN && route != Routes.REGISTER) {
+            nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
+        }
+    }
 
     // Live messages from the server: show the newest one for 4 seconds
     var noticeText by remember { mutableStateOf("") }
@@ -275,7 +286,7 @@ fun AppNavHost(vm: SkillSwapViewModel) {
 
     // The floating liquid-glass tab bar. It slides away when a lesson is pushed in, like on iOS.
     AnimatedVisibility(
-        visible = currentRoute in tabs.map { it.route },
+        visible = currentRoute in TAB_ROUTES,
         enter = slideInVertically(spring(dampingRatio = 0.8f, stiffness = 380f)) { it } + fadeIn(tween(200)),
         exit = slideOutVertically(spring(dampingRatio = 1f, stiffness = 500f)) { it } + fadeOut(tween(150)),
         modifier = Modifier.align(Alignment.BottomCenter)
@@ -303,6 +314,8 @@ fun AppNavHost(vm: SkillSwapViewModel) {
  */
 private const val GLASS_BLUR = false
 
+/** The four screens that show the tab bar. */
+private val TAB_ROUTES = tabs.map { it.route }.toSet()
 /** Screens that slide in like an iPhone "push"; everything else fades. */
 private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT, Routes.GALAXY, Routes.ACHIEVEMENTS)
 /** Screens that slide up from the bottom like an iPhone sheet. */
@@ -421,7 +434,10 @@ private fun NavHostController.navigateToTab(route: String) = navigate(route) {
 @Composable
 private fun NoConnectionScreen(message: String, retrying: Boolean, onRetry: () -> Unit) {
     Box(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(32.dp),
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+            // swallow touches: without this, taps went THROUGH this page to the hidden screen below
+            .pointerInput(Unit) {}
+            .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {

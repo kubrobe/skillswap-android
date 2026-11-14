@@ -94,6 +94,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
     var slots by remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
     var formError by remember { mutableStateOf<String?>(null) }
     var justPublished by remember { mutableStateOf(false) }
+    var publishing by remember { mutableStateOf(false) }   // request on its way: a double tap made TWO listings
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -203,7 +204,9 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                             formError = problem
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         } else {
+                            publishing = true
                             vm.createOffer(skillId, level, description, slots) { err ->
+                                publishing = false
                                 if (err == null) {
                                     description = ""; slots = emptyList(); skillId = 0L; formError = null
                                     justPublished = true
@@ -212,6 +215,7 @@ fun TeachScreen(vm: SkillSwapViewModel) {
                             }
                         }
                     },
+                    enabled = !publishing,
                     colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().height(54.dp)

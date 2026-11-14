@@ -1,8 +1,11 @@
 package uz.skillswap.app.ui.screens
 
 import uz.skillswap.app.ui.components.AppIcon
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,12 +49,17 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,13 +67,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
@@ -77,13 +90,19 @@ import uz.skillswap.app.ui.i18n.LocalStrings
 import uz.skillswap.app.ui.theme.GoldDeep
 import uz.skillswap.app.ui.theme.GoldPrimary
 import uz.skillswap.app.ui.theme.OnGold
+import uz.skillswap.app.util.VoiceError
+import uz.skillswap.app.util.VoiceInput
 
 private enum class AskState { Idle, Thinking, Done }
 
 /**
  * "Ask SkillSwap": tap the mic and say what you want to learn (English, Uzbek or Russian),
  * or type it. The server (AI when available) answers with the 3 best lessons and a reason for each.
- * Speech uses the phone's own recognizer (RecognizerIntent), so the app needs no microphone permission.
+ *
+ * Voice, in this order (the first one that works on the phone):
+ *  1. the app listens itself ([VoiceInput]): the words appear while you speak, the mic moves with your voice;
+ *  2. the phone's own "Speak now" window (RecognizerIntent) - the only way before, missing on some phones;
+ *  3. no speech engine at all: the screen says so and offers to install one.
  */
 @Composable
 fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Unit) {
@@ -94,6 +113,10 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
     var state by remember { mutableStateOf(AskState.Idle) }
     var result by remember { mutableStateOf<MatchResult?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    var listening by remember { mutableStateOf(false) }     // the microphone is open
+    val level = remember { mutableFloatStateOf(0f) }        // how loud the voice is, 0..1
+    var noEngine by remember { mutableStateOf(false) }      // this phone has no voice input at all
 
     fun ask(words: String) {
         if (words.isBlank() || state == AskState.Thinking) return
@@ -115,15 +138,82 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
         }
     }
 
-    fun listen() {
+    /** Way 2: the phone's own "Speak now" window. false = this phone does not have it. */
+    fun openSystemVoice(): Boolean {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, tr.speechLocale)
             .putExtra(RecognizerIntent.EXTRA_PROMPT, tr.askPrompt)
-        try {
+        return try {
             speech.launch(intent)
+            true
         } catch (e: ActivityNotFoundException) {
-            error = tr.noVoice
+            false
+        }
+    }
+
+    // Way 1: the app listens itself. The engine object lives as long as the screen; the two callbacks
+    // below are "updated state", so the engine always calls the newest version of them.
+    val heardNow: (String) -> Unit = { words ->
+        text = words
+        ask(words)
+    }
+    val failedNow: (VoiceError) -> Unit = { problem ->
+        error = when (problem) {
+            VoiceError.NothingHeard -> tr.voiceNothing
+            VoiceError.NoInternet -> tr.voiceNoInternet
+            // the engine inside the app cannot do it: try the phone's own window before giving up
+            VoiceError.NoLanguage -> if (openSystemVoice()) null else tr.voiceNoLanguage
+            VoiceError.NoPermission, VoiceError.Failed -> if (openSystemVoice()) null else tr.voiceFailed
+        }
+    }
+    val onHeard by rememberUpdatedState(heardNow)
+    val onFailed by rememberUpdatedState(failedNow)
+    val voice = remember {
+        VoiceInput(
+            context,
+            listeningChanged = { listening = it },
+            levelChanged = { level.floatValue = it },
+            partialText = { text = it.take(300) },
+            finalText = { onHeard(it.take(300)) },
+            failed = { onFailed(it) }
+        )
+    }
+    DisposableEffect(Unit) { onDispose { voice.release() } }                  // leaving the screen frees the mic
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { voice.cancel() }          // so does leaving the app
+
+    // Android shows its "Allow SkillSwap to record audio?" window; the answer comes back here
+    val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) voice.start(tr.speechLocale)
+        else if (!openSystemVoice()) error = tr.micDenied       // the phone's own window needs no permission
+    }
+
+    fun listen() {
+        if (state == AskState.Thinking) return
+        error = null
+        noEngine = false
+        val micAllowed = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        when {
+            listening -> voice.stop()                           // second tap = "I have finished speaking"
+            !VoiceInput.isAvailable(context) -> if (!openSystemVoice()) noEngine = true
+            micAllowed -> voice.start(tr.speechLocale)
+            else -> askMic.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    /** Way 3: open the Google app's page in the Play Store (it brings voice input to the phone). */
+    fun installVoice() {
+        val page = "details?id=${VoiceInput.GOOGLE_APP}"
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://$page")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: ActivityNotFoundException) {
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/$page"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (e2: ActivityNotFoundException) {
+                error = tr.voiceFailed
+            }
         }
     }
 
@@ -139,11 +229,12 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
                 IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = tr.close) }
             }
             Spacer(Modifier.height(18.dp))
-            MicButton(listening = state == AskState.Thinking, label = tr.speak) { listen() }
+            MicButton(active = listening || state == AskState.Thinking, level = { level.floatValue },
+                label = tr.speak) { listen() }
             Spacer(Modifier.height(14.dp))
-            Text(tr.tapToSpeak, style = MaterialTheme.typography.titleMedium)
-            Text(tr.askExample, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (listening) tr.listening else tr.tapToSpeak, style = MaterialTheme.typography.titleMedium)
+            Text(if (listening) tr.tapToFinish else tr.askExample, style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(18.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
@@ -159,6 +250,11 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 10.dp))
             }
+            if (noEngine) {
+                Text(tr.noVoice, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center, modifier = Modifier.padding(top = 10.dp))
+                TextButton(onClick = { installVoice() }) { Text(tr.voiceInstall) }
+            }
             Spacer(Modifier.height(20.dp))
 
             AnimatedContent(targetState = state, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) },
@@ -167,6 +263,10 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
                     AskState.Thinking -> ThinkingDots(tr.thinking)
                     AskState.Done -> {
                         val r = result
+                        // a pick is shown only if the lesson is in this phone's copy of the data
+                        val shown = r?.picks.orEmpty().mapNotNull { pick ->
+                            offers.firstOrNull { it.offerId == pick.offerId }?.let { pick to it }
+                        }
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             if (r != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -178,29 +278,26 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
                                     }
                                     SmallPill(if (r.source == "ai") tr.byAi else tr.bySmart, GoldDeep)
                                 }
-                                if (r.picks.isEmpty()) {
+                                if (shown.isEmpty()) {
                                     Text(tr.noPicks, style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                r.picks.forEachIndexed { i, pick ->
-                                    val o = offers.firstOrNull { it.offerId == pick.offerId }
-                                    if (o != null) {
-                                        StaggerIn(i) {
-                                            AppCard(Modifier.fillMaxWidth(), onClick = { onOpen(o.offerId) }) {
-                                                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                    SkillTile(o.skillName, o.category)
-                                                    Column(Modifier.weight(1f).padding(start = 12.dp),
-                                                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                                        Text(o.skillName, style = MaterialTheme.typography.titleMedium,
-                                                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                        Text(tr.byTeacher(o.teacherName), style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                        Text(pick.reason, style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                                    }
-                                                    Text("›", style = MaterialTheme.typography.headlineSmall,
-                                                        color = MaterialTheme.colorScheme.primary)
+                                shown.forEachIndexed { i, (pick, o) ->
+                                    StaggerIn(i) {
+                                        AppCard(Modifier.fillMaxWidth(), onClick = { onOpen(o.offerId) }) {
+                                            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                SkillTile(o.skillName, o.category)
+                                                Column(Modifier.weight(1f).padding(start = 12.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                                    Text(o.skillName, style = MaterialTheme.typography.titleMedium,
+                                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    Text(tr.byTeacher(o.teacherName), style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    Text(pick.reason, style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                                                 }
+                                                Text("›", style = MaterialTheme.typography.headlineSmall,
+                                                    color = MaterialTheme.colorScheme.primary)
                                             }
                                         }
                                     }
@@ -216,13 +313,29 @@ fun AskScreen(vm: SkillSwapViewModel, onClose: () -> Unit, onOpen: (Long) -> Uni
     }
 }
 
-/** A big gold mic with soft rings breathing around it. */
+/**
+ * A big gold mic with soft rings breathing around it. While the app listens, a halo behind the mic
+ * grows and shrinks with the voice ([level] = loudness 0..1, read only in the draw step: no recomposition).
+ */
 @Composable
-private fun MicButton(listening: Boolean, label: String, onClick: () -> Unit) {
+private fun MicButton(active: Boolean, level: () -> Float, label: String, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val rings = rememberInfiniteTransition(label = "mic")
-    val wave = rings.animateFloat(0f, 1f, infiniteRepeatable(tween(if (listening) 900 else 2200, easing = LinearEasing)), label = "wave")
+    val wave = rings.animateFloat(0f, 1f, infiniteRepeatable(tween(if (active) 900 else 2200, easing = LinearEasing)), label = "wave")
+    // the engine reports loudness about 10 times a second; gliding between the values keeps the halo smooth
+    val halo = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { level() }.collectLatest { halo.animateTo(it, tween(140)) }
+    }
     Box(Modifier.size(180.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(120.dp).graphicsLayer {
+                val grow = 1f + halo.value * 0.45f
+                scaleX = grow
+                scaleY = grow
+                alpha = halo.value.coerceIn(0f, 1f) * 0.45f
+            }.clip(CircleShape).background(GoldPrimary)
+        )
         for (k in 0..1) {
             Box(
                 Modifier.size(120.dp).graphicsLayer {

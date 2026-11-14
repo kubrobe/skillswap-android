@@ -72,6 +72,9 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     var bookedText by remember { mutableStateOf<String?>(null) }   // set after a successful booking
+    // true while a booking request is on its way: a second tap used to send a second request, which
+    // came back as "this time was just booked" right on top of the success screen
+    var booking by remember { mutableStateOf(false) }
     val tr = LocalStrings.current
 
     Scaffold(
@@ -132,10 +135,12 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Button(
-                                enabled = !s.isBooked,
+                                enabled = !s.isBooked && !booking,
                                 shape = RoundedCornerShape(14.dp),
                                 onClick = {
+                                    booking = true
                                     vm.book(s.id) { err ->
+                                        booking = false
                                         if (err == null) {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             bookedText = tr.withTeacher(o.skillName, o.teacherName) + "\n" +
