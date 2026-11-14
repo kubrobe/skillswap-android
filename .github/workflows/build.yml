@@ -1,0 +1,37 @@
+# Builds the app on GitHub's servers on every push, so you can download an APK without Android Studio.
+# Download: repo -> Actions tab -> the latest run -> Artifacts -> SkillSwap-debug-apk
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # gradle/gradle-daemon-jvm.properties asks for Java 25 to run Gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests and debug build
+        run: |
+          chmod +x gradlew
+          ./gradlew --console=plain testDebugUnitTest assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SkillSwap-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
