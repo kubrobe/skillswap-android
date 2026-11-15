@@ -46,7 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -56,7 +55,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.provider.CalendarContract
-import uz.skillswap.app.util.jitsiUrl
 import uz.skillswap.app.util.nextOccurrence
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,7 +83,7 @@ import uz.skillswap.app.util.formatDate
 import uz.skillswap.app.util.slotLabel
 
 @Composable
-fun LessonsScreen(vm: SkillSwapViewModel) {
+fun LessonsScreen(vm: SkillSwapViewModel, onVideo: (bookingId: Long) -> Unit) {
     val learning by vm.learning.collectAsStateWithLifecycle()
     val teaching by vm.teaching.collectAsStateWithLifecycle()
     var learnMode by rememberSaveable { mutableStateOf(true) }
@@ -96,7 +94,8 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val uriHandler = LocalUriHandler.current
+    val rooms by vm.rooms.collectAsStateWithLifecycle()          // open video rooms: who is waiting
+    val me by vm.currentUser.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var planTarget by remember { mutableStateOf<BookingLine?>(null) }
     val tr = LocalStrings.current
@@ -146,13 +145,13 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
                     if (upcoming.isNotEmpty()) {
                         item { SectionTitle(tr.upcomingN(upcoming.size)) }
                         items(upcoming, key = { it.bookingId }) { b ->
+                            // the other person is in this lesson's video room right now
+                            val waiting = rooms[b.bookingId]?.online?.any { it != me?.id } == true
                             LessonCard(
                                 b, mode, true, onCancel = { cancelTarget = b }, onDone = { checkinTarget = b }, onRate = {},
                                 onShowQr = { qrTarget = b },
-                                onVideo = {
-                                    try { uriHandler.openUri(jitsiUrl(b.bookingId, b.createdAt)) }
-                                    catch (e: Exception) { show(tr.noBrowser) }
-                                },
+                                onVideo = { onVideo(b.bookingId) },
+                                waitingName = if (waiting) (if (mode) b.teacherName else b.learnerName).substringBefore(' ') else null,
                                 onCalendar = { if (!addToCalendar(context, b, tr)) show(tr.noCalendar) },
                                 onPlan = { planTarget = b }
                             )
@@ -229,7 +228,8 @@ fun LessonsScreen(vm: SkillSwapViewModel) {
 private fun LessonCard(
     b: BookingLine, learnMode: Boolean, online: Boolean,
     onCancel: () -> Unit, onDone: () -> Unit, onRate: () -> Unit, onShowQr: () -> Unit,
-    onVideo: () -> Unit, onCalendar: () -> Unit, onPlan: () -> Unit
+    onVideo: () -> Unit, onCalendar: () -> Unit, onPlan: () -> Unit,
+    waitingName: String? = null                  // set = they are in the video room now: show a big "Join" button
 ) {
     val tr = LocalStrings.current
     val (label, statusColor) = when (b.status) {
@@ -252,6 +252,11 @@ private fun LessonCard(
             IconText("📅 ${tr.slot(b.day, b.hour)}   ·   ${tr.bookedOn(formatDate(b.createdAt))}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (b.status == STATUS_BOOKED && waitingName != null) {
+                Button(onClick = onVideo, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    IconText("🎥 ${tr.joinWaiting(waitingName)}")
+                }
+            }
             if (learnMode && b.status == STATUS_BOOKED) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                     Button(onClick = onDone, shape = RoundedCornerShape(14.dp)) { IconText(tr.checkIn) }
@@ -361,7 +366,7 @@ private fun addToCalendar(context: Context, b: BookingLine, tr: Strings): Boolea
         .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, start + 60 * 60 * 1000L)
         .putExtra(CalendarContract.Events.TITLE, "SkillSwap: ${b.skillName}")
         .putExtra(CalendarContract.Events.DESCRIPTION,
-            "${tr.teacherIs(b.teacherName)}\n${tr.learnerIs(b.learnerName)}\n${tr.videoRoom}: ${jitsiUrl(b.bookingId, b.createdAt)}")
+            "${tr.teacherIs(b.teacherName)}\n${tr.learnerIs(b.learnerName)}\n${tr.videoInApp}")
     return try {
         context.startActivity(intent)
         true

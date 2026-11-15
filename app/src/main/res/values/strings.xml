@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">SkillSwap</string>
+    <!-- shown in Android's notification settings for the ongoing video lesson notification -->
+    <string name="call_channel_name">Video lessons</string>
 </resources>

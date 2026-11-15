@@ -1,7 +1,11 @@
 package uz.skillswap.app.data.remote
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -68,6 +72,9 @@ class Galaxy(val me: Long, val nodes: List<GalaxyNode>, val edges: List<GalaxyEd
 class GalaxyNode(val id: Long, val name: String, val category: String, val emoji: String, val taught: Int, val learned: Int)
 class GalaxyEdge(val from: Long, val to: Long, val lessons: Int, val emoji: String)
 
+/** An open video room of one of my lessons; [online] = user ids in the room right now. */
+class RoomPresence(val bookingId: Long, val roomId: String, val online: List<Long>, val ended: Boolean = false)
+
 /** Everything the app downloads in one request; the tables are written into Room as one transaction. */
 class Snapshot(
     val me: User,
@@ -80,7 +87,8 @@ class Snapshot(
     val wallet: Wallet = Wallet(0, emptyList()),
     val wants: List<Long> = emptyList(),
     val matches: List<Match> = emptyList(),
-    val activity: List<ActivityLine> = emptyList()
+    val activity: List<ActivityLine> = emptyList(),
+    val rooms: List<RoomPresence> = emptyList()
 )
 
 /**
@@ -165,7 +173,8 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
             },
             activity = (o.optJSONArray("activity") ?: JSONArray()).objects().map {
                 ActivityLine(text = it.optString("text"), at = it.optDouble("at", 0.0).toLong())
-            }
+            },
+            rooms = (o.optJSONArray("rooms") ?: JSONArray()).objects().map { roomPresence(it) }
         )
     }
 
@@ -295,6 +304,90 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
                 conn.disconnect()
             }
         }
+
+    // ---------- video lessons (native WebRTC; the server only relays connection messages) ----------
+
+    /** Opens (or returns) the video room of a booked lesson. The JSON is read by call/Protocol.kt. */
+    suspend fun openRoom(token: String, bookingId: Long): JSONObject =
+        request("POST", "/bookings/$bookingId/room", token)
+
+    /** One connection message (offer / answer / ICE candidate / media state) for one person in the room. */
+    suspend fun sendSignal(token: String, roomId: String, body: JSONObject) {
+        request("POST", "/rooms/$roomId/signal", token, body)
+    }
+
+    suspend fun leaveRoom(token: String, roomId: String) {
+        request("POST", "/rooms/$roomId/leave", token)
+    }
+
+    suspend fun endRoom(token: String, roomId: String) {
+        request("POST", "/rooms/$roomId/end", token)
+    }
+
+    /**
+     * The room's live stream. Calls [onEvent] for every event until the server closes it (normal return) or
+     * the line breaks (OfflineException). 404 / 410 (no such room, room ended) come as ApiException with the
+     * server's message. Cancelling the coroutine closes the connection at once (needed when a call ends).
+     */
+    suspend fun roomEvents(token: String, roomId: String, onEvent: suspend (String, JSONObject) -> Unit) =
+        stream("/rooms/$roomId/events", token, readTimeoutMs = 45_000, onEvent)   // the server pings every 15 s
+
+    fun roomPresence(o: JSONObject) = RoomPresence(
+        bookingId = o.getLong("bookingId"), roomId = o.optString("roomId"),
+        online = o.optJSONArray("online")?.let { a -> (0 until a.length()).map { a.getLong(it) } } ?: emptyList(),
+        ended = o.optBoolean("ended", false)
+    )
+
+    private suspend fun stream(
+        path: String, token: String, readTimeoutMs: Int, onEvent: suspend (String, JSONObject) -> Unit
+    ): Unit = coroutineScope {
+        val conn = try {
+            URL(baseUrl + path).openConnection() as HttpURLConnection
+        } catch (e: IOException) {
+            throw OfflineException()
+        }
+        // A blocking read cannot be cancelled; disconnecting the socket from here makes it stop at once.
+        val closer = launch { try { awaitCancellation() } finally { conn.disconnect() } }
+        try {
+            withContext(Dispatchers.IO) {
+                conn.connectTimeout = 20_000
+                conn.readTimeout = readTimeoutMs
+                conn.setRequestProperty("Accept", "text/event-stream")
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                val code = conn.responseCode
+                if (code in 502..504) throw OfflineException("The server is waking up. Please try again in a minute.")
+                if (code != 200) {
+                    val text = conn.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+                    val msg = try { JSONObject(text).optString("error") } catch (e: JSONException) { "" }
+                    throw ApiException(code, msg.ifBlank { "Server error ($code)" })
+                }
+                conn.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                    var type = "message"
+                    val data = StringBuilder()
+                    while (isActive) {
+                        val line = reader.readLine() ?: break
+                        when {
+                            line.isEmpty() -> {
+                                if (data.isNotEmpty()) {
+                                    val json = try { JSONObject(data.toString()) } catch (e: JSONException) { JSONObject() }
+                                    onEvent(type, json)
+                                }
+                                type = "message"
+                                data.setLength(0)
+                            }
+                            line.startsWith("event:") -> type = line.substringAfter(':').trim()
+                            line.startsWith("data:") -> data.append(line.substringAfter(':').trim())
+                        }
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            ensureActive()                   // closed because the call ended: that is a cancellation, not "offline"
+            throw OfflineException()
+        } finally {
+            closer.cancel()
+        }
+    }
 
     suspend fun publishOffer(
         token: String, skillId: Long, level: String, description: String, slots: List<Pair<Int, Int>>

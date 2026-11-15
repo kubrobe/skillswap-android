@@ -112,6 +112,12 @@ import uz.skillswap.app.ui.screens.RegisterScreen
 import uz.skillswap.app.ui.screens.SwipeScreen
 import uz.skillswap.app.ui.screens.TeachScreen
 import uz.skillswap.app.ui.components.CoinFlyOverlay
+import uz.skillswap.app.ui.call.VideoRoomScreen
+import uz.skillswap.app.ui.components.AppIcon
+import uz.skillswap.app.SkillSwapApp
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import uz.skillswap.app.ui.components.LevelUpOverlay
 
 /** All screen addresses ("routes") in one place */
@@ -128,7 +134,9 @@ object Routes {
     const val GALAXY = "galaxy"
     const val ASK = "ask"
     const val ACHIEVEMENTS = "achievements"
+    const val CALL = "call/{bookingId}"
     fun detail(id: Long) = "detail/$id"
+    fun call(bookingId: Long) = "call/$bookingId"
 }
 
 /** [label] picks the tab name from the current language. */
@@ -156,6 +164,19 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     val celebrate by vm.celebrate.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
     val user by vm.currentUser.collectAsStateWithLifecycle()
+
+    // A video lesson that is running (it lives in the app, not in its screen): its booking id, or null.
+    val calls = (LocalContext.current.applicationContext as SkillSwapApp).videoRooms
+    val activeCall by remember(calls) {
+        calls.state.map { if (it.phase.isActive) it.bookingId else null }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(null)
+    val openCall by vm.openCall.collectAsStateWithLifecycle()
+    LaunchedEffect(openCall, activeCall) {               // the ongoing-call notification was tapped
+        if (!openCall) return@LaunchedEffect
+        vm.openCallHandled()
+        val id = activeCall ?: return@LaunchedEffect
+        if (currentRoute != Routes.CALL) nav.navigate(Routes.call(id)) { launchSingleTop = true }
+    }
 
     // Live messages from the server: show the newest one for 4 seconds
     var noticeText by remember { mutableStateOf("") }
@@ -250,7 +271,13 @@ fun AppNavHost(vm: SkillSwapViewModel) {
                     onBack = { nav.popBackStack() },
                     onBooked = { nav.navigateToTab(Routes.LESSONS) })
             }
-            composable(Routes.LESSONS) { LessonsScreen(vm) }
+            composable(Routes.LESSONS) { LessonsScreen(vm, onVideo = { id -> nav.navigate(Routes.call(id)) { launchSingleTop = true } }) }
+            composable(
+                Routes.CALL,
+                arguments = listOf(navArgument("bookingId") { type = NavType.LongType })
+            ) { entry ->
+                VideoRoomScreen(vm, bookingId = entry.arguments?.getLong("bookingId") ?: 0L, onClose = { nav.popBackStack() })
+            }
             composable(Routes.TEACH) { TeachScreen(vm) }
             composable(Routes.PROFILE) {
                 ProfileScreen(vm, onLoggedOut = {
@@ -271,6 +298,16 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     ) {
         NoticeCard(noticeText)
     }
+
+    // A video lesson is running but its screen is not shown: one tap goes back to it.
+    AnimatedVisibility(
+        visible = activeCall != null && currentRoute != Routes.CALL && !noticeVisible,
+        enter = slideInVertically(tween(260)) { -it } + fadeIn(tween(260)),
+        exit = slideOutVertically(tween(200)) { -it } + fadeOut(tween(200)),
+        modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(12.dp)
+    ) {
+        ReturnToCallPill { activeCall?.let { nav.navigate(Routes.call(it)) { launchSingleTop = true } } }
+    }
     }   // end of the blurred source
 
     // The floating liquid-glass tab bar. It slides away when a lesson is pushed in, like on iOS.
@@ -287,7 +324,8 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     }
 
     // SkillSwap is always online: when the server cannot be reached, say so and offer a retry.
-    if (user != null && sync.problem != null) {
+    // (never over a running video lesson: the call has its own connection states)
+    if (user != null && sync.problem != null && currentRoute != Routes.CALL) {
         NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
     }
     CoinFlyOverlay(vm.coins)
@@ -306,7 +344,7 @@ private const val GLASS_BLUR = false
 /** Screens that slide in like an iPhone "push"; everything else fades. */
 private val PUSHED = setOf(Routes.DETAIL, Routes.REGISTER, Routes.IMPACT, Routes.GALAXY, Routes.ACHIEVEMENTS)
 /** Screens that slide up from the bottom like an iPhone sheet. */
-private val MODAL = setOf(Routes.SWIPE, Routes.ASK)
+private val MODAL = setOf(Routes.SWIPE, Routes.ASK, Routes.CALL)
 /**
  * Switching tabs: the old screen fades out quickly, the new one fades in while rising a few pixels.
  * PERFORMANCE: the old zoom (scaleIn 0.97 -> 1) made the phone re-draw every pixel of the whole screen on
@@ -437,3 +475,19 @@ private fun NoConnectionScreen(message: String, retrying: Boolean, onRetry: () -
     }
 }
 
+/** The gold pill shown over the app while a video lesson runs in the background of the app. */
+@Composable
+private fun ReturnToCallPill(onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Row(
+        Modifier.shadow(10.dp, shape).clip(shape)
+            .background(Brush.linearGradient(listOf(GoldPrimary, GoldDeep)))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        AppIcon("video", size = 18.dp, tint = OnGold)
+        Text(LocalStrings.current.returnToCall, color = OnGold, style = MaterialTheme.typography.labelLarge)
+    }
+}

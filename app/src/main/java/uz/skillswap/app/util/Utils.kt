@@ -96,10 +96,6 @@ fun nextOccurrence(nowMillis: Long, day: Int, hour: Int, zone: java.util.TimeZon
     return target.timeInMillis
 }
 
-/** A free Jitsi video room for one booking. Hard to guess, the same on both phones. */
-fun jitsiUrl(bookingId: Long, createdAt: Long): String =
-    "https://meet.jit.si/SkillSwap-$bookingId-${(createdAt % 1_000_000_000L).toString(36)}"
-
 /** Text inside the teacher's check-in QR code. */
 fun checkinQrText(bookingId: Long, code: String): String = "skillswap:checkin:$bookingId:$code"
 

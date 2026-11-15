@@ -21,6 +21,8 @@ import uz.skillswap.app.data.remote.ApiException
 import uz.skillswap.app.data.remote.AuthResult
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.OfflineException
+import uz.skillswap.app.data.remote.RoomPresence
+import org.json.JSONObject
 import uz.skillswap.app.data.remote.Snapshot
 import uz.skillswap.app.data.remote.Wallet
 import uz.skillswap.app.util.TokenCipher
@@ -64,6 +66,10 @@ class SkillSwapRepository(
     /** Live community feed for the ticker on Browse (newest first). */
     private val _activity = MutableStateFlow<List<ActivityLine>>(emptyList())
     val activity: StateFlow<List<ActivityLine>> = _activity.asStateFlow()
+
+    /** Open video rooms of my lessons, by booking id: the lesson card shows "Join" and who is waiting. */
+    private val _rooms = MutableStateFlow<Map<Long, RoomPresence>>(emptyMap())
+    val rooms: StateFlow<Map<Long, RoomPresence>> = _rooms.asStateFlow()
 
     /** +1 when someone checks in to my lesson (live server event). Plays the flying-coin animation. */
     private val _coins = MutableSharedFlow<Int>(extraBufferCapacity = 4)
@@ -174,6 +180,7 @@ class SkillSwapRepository(
         _wants.value = s.wants
         _matches.value = s.matches
         _activity.value = s.activity
+        _rooms.value = s.rooms.associateBy { it.bookingId }
         _currentUser.value = db.userDao().findById(s.me.id) ?: s.me
     }
 
@@ -258,6 +265,7 @@ class SkillSwapRepository(
         _wants.value = emptyList()
         _matches.value = emptyList()
         _activity.value = emptyList()
+        _rooms.value = emptyMap()
         _currentUser.value = null
     }
 
@@ -387,6 +395,10 @@ class SkillSwapRepository(
                         // at once: wait a moment and download once, without blocking this event stream.
                         "changed" -> if (pending?.isActive != true) pending = launch { delay(400); refresh() }
                         "credit" -> { _coins.tryEmit(data.optInt("amount", 1)) }
+                        "room" -> {
+                            val p = api.roomPresence(data)
+                            _rooms.value = if (p.ended) _rooms.value - p.bookingId else _rooms.value + (p.bookingId to p)
+                        }
                         "activity" -> {
                             val line = ActivityLine(data.optString("text"), data.optLong("at", System.currentTimeMillis()))
                             if (line.text.isNotBlank()) _activity.value = (listOf(line) + _activity.value).take(12)
@@ -407,6 +419,29 @@ class SkillSwapRepository(
             }
             delay(wait)
             wait = (wait * 2).coerceAtMost(30_000L)
+        }
+    }
+
+    // ---------- video lessons ----------
+    // The call itself lives in call/VideoRoomManager; these only add the session token (and log out on 401).
+
+    suspend fun openRoom(bookingId: Long): JSONObject = withToken { api.openRoom(it, bookingId) }
+    suspend fun sendSignal(roomId: String, body: JSONObject) = withToken { api.sendSignal(it, roomId, body) }
+    suspend fun leaveRoom(roomId: String) = withToken { api.leaveRoom(it, roomId) }
+    suspend fun endRoom(roomId: String) = withToken { api.endRoom(it, roomId) }
+    suspend fun roomEvents(roomId: String, onEvent: suspend (String, JSONObject) -> Unit) =
+        withToken { api.roomEvents(it, roomId, onEvent) }
+
+    private suspend fun <T> withToken(action: suspend (String) -> T): T {
+        val t = token ?: throw IllegalStateException(SESSION_EXPIRED)
+        try {
+            return action(t)
+        } catch (e: ApiException) {
+            if (e.status == 401) {
+                expireSession()
+                throw IllegalStateException(SESSION_EXPIRED)
+            }
+            throw e
         }
     }
 

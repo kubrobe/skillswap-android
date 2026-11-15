@@ -381,6 +381,45 @@ object SkillIcons {
         "bolt" to Spec(0.0f, listOf(
             "M13.2 2.8 L5.4 13.4 H11.6 L10.8 21.2 L18.6 10.6 H12.4 Z" to false
         )),
+        // ---- video lesson controls ----
+        "mic_off" to Spec(0.0f, listOf(
+            "M12 3 H12 A3 3 0 0 1 15 6 V11 A3 3 0 0 1 12 14 H12 A3 3 0 0 1 9 11 V6 A3 3 0 0 1 12 3 Z" to false,
+            "M5.6 11.4 A6.4 6.4 0 0 0 18.4 11.4" to false,
+            "M12 17.8 V21" to false,
+            "M4 3.6 L20 20.4" to false
+        )),
+        "video_off" to Spec(0.0f, listOf(
+            "M5.4 6.4 H13 A2.6 2.6 0 0 1 15.6 9 V15 A2.6 2.6 0 0 1 13 17.6 H5.4 A2.6 2.6 0 0 1 2.8 15 V9 A2.6 2.6 0 0 1 5.4 6.4 Z" to false,
+            "M15.6 10.4 L20.4 7.6 A0.6 0.6 0 0 1 21.3 8.1 V15.9 A0.6 0.6 0 0 1 20.4 16.4 L15.6 13.6" to false,
+            "M3 3.6 L21 20.4" to false
+        )),
+        "flip_camera" to Spec(0.0f, listOf(
+            "M6 7 H18 A3 3 0 0 1 21 10 V17 A3 3 0 0 1 18 20 H6 A3 3 0 0 1 3 17 V10 A3 3 0 0 1 6 7 Z" to false,
+            "M8.3 7 L9.8 4.5 H14.2 L15.7 7" to false,
+            "M9 13 A3 3 0 0 1 14.7 11.8" to false,
+            "M14.9 10 V12 H12.9" to false,
+            "M15 14 A3 3 0 0 1 9.3 15.2" to false,
+            "M9.1 17 V15 H11.1" to false
+        )),
+        "speaker" to Spec(0.0f, listOf(
+            "M3.8 9.4 H7.4 L12 5.4 V18.6 L7.4 14.6 H3.8 Z" to false,
+            "M15.4 9.2 A4 4 0 0 1 15.4 14.8" to false,
+            "M18 6.6 A7.6 7.6 0 0 1 18 17.4" to false
+        )),
+        "earpiece" to Spec(0.0f, listOf(
+            "M7.4 3.6 L9.5 3.5 L11 7.3 L9.2 8.7 A11 11 0 0 0 15.3 14.8 L16.7 13 L20.5 14.5 L20.4 16.6 A2.4 2.4 0 0 1 18 19 A15 15 0 0 1 5 6 A2.4 2.4 0 0 1 7.4 3.6 Z" to false
+        )),
+        "hangup" to Spec(135.0f, listOf(
+            "M7.4 3.6 L9.5 3.5 L11 7.3 L9.2 8.7 A11 11 0 0 0 15.3 14.8 L16.7 13 L20.5 14.5 L20.4 16.6 A2.4 2.4 0 0 1 18 19 A15 15 0 0 1 5 6 A2.4 2.4 0 0 1 7.4 3.6 Z" to false
+        )),
+        "bluetooth" to Spec(0.0f, listOf(
+            "M7 7.6 L16.8 16.4 L12 20.6 V3.4 L16.8 7.6 L7 16.4" to false
+        )),
+        "headset" to Spec(0.0f, listOf(
+            "M4.5 15 V12 A7.5 7.5 0 0 1 19.5 12 V15" to false,
+            "M4.5 14 H6.5 A1.5 1.5 0 0 1 8 15.5 V18.5 A1.5 1.5 0 0 1 6.5 20 H6 A1.5 1.5 0 0 1 4.5 18.5 Z" to false,
+            "M19.5 14 H17.5 A1.5 1.5 0 0 0 16 15.5 V18.5 A1.5 1.5 0 0 0 17.5 20 H18 A1.5 1.5 0 0 0 19.5 18.5 Z" to false
+        )),
         "wallet" to Spec(0.0f, listOf(
             "M18.4 7 V5.4 A1.6 1.6 0 0 0 16.8 3.8 H5.6 A2.2 2.2 0 0 0 3.4 6 V18 A2.2 2.2 0 0 0 5.6 20.2 H18.4 A2.2 2.2 0 0 0 20.6 18 V9.2 A2.2 2.2 0 0 0 18.4 7 H5.6 A2.2 2.2 0 0 1 3.4 4.8" to false,
             "M15.4 13.6 A1.2 1.2 0 1 0 17.8 13.6 A1.2 1.2 0 1 0 15.4 13.6 Z" to true

@@ -9,3 +9,7 @@
 -keep class androidx.credentials.playservices.** {
   *;
 }
+
+# WebRTC: its native code calls Java classes and methods by name (JNI), so R8 must not rename or remove them
+-keep class org.webrtc.** { *; }
+-dontwarn org.webrtc.**

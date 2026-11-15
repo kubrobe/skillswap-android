@@ -25,7 +25,6 @@ import uz.skillswap.app.util.averageRating
 import uz.skillswap.app.util.checkinQrText
 import uz.skillswap.app.util.hasDuplicateSlots
 import uz.skillswap.app.util.parseCheckinQr
-import uz.skillswap.app.util.jitsiUrl
 import uz.skillswap.app.util.nextOccurrence
 import uz.skillswap.app.util.memberLevel
 import uz.skillswap.app.util.nextLevelTarget
@@ -105,12 +104,6 @@ class UtilsTest {
         assertEquals(1794247200000L, nextOccurrence(mondayTenAm, 1, 18, utc))   // later today, 18:00
         assertEquals(1794819600000L, nextOccurrence(mondayTenAm, 1, 9, utc))    // 9:00 passed -> next Monday
         assertEquals(1794740400000L, nextOccurrence(mondayTenAm, 7, 11, utc))   // Sunday 15 Nov, 11:00
-    }
-
-    @Test fun jitsiUrl_isStableAndUnique() {
-        assertEquals(jitsiUrl(5, 123456789L), jitsiUrl(5, 123456789L))
-        assertNotEquals(jitsiUrl(5, 123456789L), jitsiUrl(6, 123456789L))
-        assertTrue(jitsiUrl(5, 1L).startsWith("https://meet.jit.si/SkillSwap-5-"))
     }
 
     @Test fun checkinQr_roundTripAndRejectsOtherLessons() {

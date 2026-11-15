@@ -43,6 +43,7 @@ import uz.skillswap.app.data.remote.ActivityLine
 import uz.skillswap.app.data.remote.Impact
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.Wallet
+import uz.skillswap.app.data.remote.RoomPresence
 import uz.skillswap.app.data.User
 import uz.skillswap.app.data.STATUS_DONE
 import uz.skillswap.app.util.memberLevel
@@ -61,6 +62,14 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     val matches: StateFlow<List<Match>> = repo.matches
     val notices: SharedFlow<String> = repo.notices       // live banner messages
     val activity: StateFlow<List<ActivityLine>> = repo.activity   // live community ticker
+    val rooms: StateFlow<Map<Long, RoomPresence>> = repo.rooms     // open video rooms of my lessons (who is waiting)
+
+    // The ongoing-call notification was tapped: AppNavHost opens the call screen, then clears the flag.
+    // A flag (not an event) so the request is not lost when it comes before the screens exist (cold start).
+    private val _openCall = MutableStateFlow(false)
+    val openCall: StateFlow<Boolean> = _openCall.asStateFlow()
+    fun requestOpenCall() { _openCall.value = true }
+    fun openCallHandled() { _openCall.value = false }
     // -1 / +1 for the flying-coin animation: server events (+1 earned) and my own bookings (-1)
     private val localCoins = MutableSharedFlow<Int>(extraBufferCapacity = 4)
     val coins: Flow<Int> = merge(repo.coins, localCoins)
