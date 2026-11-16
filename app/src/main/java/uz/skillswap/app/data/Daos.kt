@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 // A DAO (Data Access Object) lists the SQL queries the app can run.
@@ -23,6 +24,14 @@ interface UserDao {
 
     @Query("UPDATE users SET fullName = :name, bio = :bio WHERE id = :id")
     suspend fun updateProfile(id: Long, name: String, bio: String)
+
+    /** Rewrites one row in place (an UPDATE, so the offers and bookings that point to it stay). */
+    @Update
+    suspend fun update(user: User)
+
+    /** One person, live: the lesson screens read the teacher's contacts from here. */
+    @Query("SELECT * FROM users WHERE id = :id")
+    fun observe(id: Long): Flow<User?>
 }
 
 @Dao
@@ -48,7 +57,7 @@ private const val OFFER_SELECT = """
            COALESCE((SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.offerId = o.id), 0.0) AS rating,
            (SELECT COUNT(*) FROM reviews r WHERE r.offerId = o.id) AS reviewCount,
            (SELECT COUNT(*) FROM time_slots t WHERE t.offerId = o.id AND t.isBooked = 0) AS freeSlots,
-           o.trusted AS trusted, o.skillId AS skillId
+           o.trusted AS trusted, o.skillId AS skillId, u.username AS teacherUsername
     FROM offers o
     JOIN skills s ON s.id = o.skillId
     JOIN users u ON u.id = o.userId
@@ -59,10 +68,20 @@ abstract class OfferDao {
     @Query(
         OFFER_SELECT + """
         WHERE (:category IS NULL OR s.category = :category)
-          AND (s.name LIKE '%' || :query || '%' OR u.fullName LIKE '%' || :query || '%')
+          AND (s.name LIKE '%' || :query || '%' OR u.fullName LIKE '%' || :query || '%'
+               OR u.username LIKE '%' || :query || '%')
         ORDER BY rating DESC, s.name"""
     )
     abstract fun search(query: String, category: String?): Flow<List<OfferCard>>
+
+    /** Search by @username only: [handle] is what was typed after the "@", in lower case. */
+    @Query(
+        OFFER_SELECT + """
+        WHERE (:category IS NULL OR s.category = :category)
+          AND u.username LIKE :handle || '%'
+        ORDER BY u.username, s.name"""
+    )
+    abstract fun searchByUsername(handle: String, category: String?): Flow<List<OfferCard>>
 
     @Query(OFFER_SELECT + " WHERE o.id = :offerId")
     abstract fun observeOffer(offerId: Long): Flow<OfferCard?>
@@ -90,7 +109,10 @@ private const val BOOKING_SELECT = """
            tu.fullName AS teacherName, lu.fullName AS learnerName,
            t.day AS day, t.hour AS hour,
            (SELECT r.rating FROM reviews r WHERE r.bookingId = b.id) AS myRating,
-           b.checkinCode AS checkinCode
+           b.checkinCode AS checkinCode,
+           tu.username AS teacherUsername, lu.username AS learnerUsername,
+           tu.telegramUsername AS teacherTelegram, tu.phone AS teacherPhone, tu.contactsHidden AS teacherContactsHidden,
+           lu.telegramUsername AS learnerTelegram, lu.phone AS learnerPhone, lu.contactsHidden AS learnerContactsHidden
     FROM bookings b
     JOIN time_slots t ON t.id = b.slotId
     JOIN offers o ON o.id = b.offerId

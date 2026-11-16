@@ -113,6 +113,42 @@ object Validators {
     fun isValidEmail(email: String) = emailRegex.matches(email.trim())
     fun isStrongPassword(password: String) = password.length >= 8 && password.any { it.isDigit() }
     fun isValidRating(rating: Int) = rating in 1..5
+
+    // ---- @username: 3-20 characters, a-z 0-9 _, starts with a letter (the server checks the same rules) ----
+    val RESERVED_USERNAMES = setOf("admin", "skillswap", "support")
+    private val usernameRegex = Regex("^[a-z][a-z0-9_]{2,19}$")
+
+    /** " @Aziza_01 " -> "aziza_01": what is checked and saved. */
+    fun cleanUsername(raw: String): String = raw.trim().removePrefix("@").lowercase(Locale.ROOT)
+
+    /** Which rule a (cleaned) username breaks: "short", "long", "start", "chars", "reserved"; null = fine. */
+    fun usernameProblem(username: String): String? = when {
+        username.length < 3 -> "short"
+        username.length > 20 -> "long"
+        username[0] !in 'a'..'z' -> "start"
+        !usernameRegex.matches(username) -> "chars"
+        username in RESERVED_USERNAMES -> "reserved"
+        else -> null
+    }
+
+    fun isValidUsername(raw: String): Boolean = usernameProblem(cleanUsername(raw)) == null
+
+    // ---- phone: E.164 = "+" and 8-15 digits, e.g. +998901234567 ----
+    private val phoneRegex = Regex("^\\+[1-9][0-9]{7,14}$")
+
+    /** "+998 (90) 123-45-67" -> "+998901234567" */
+    fun cleanPhone(raw: String): String = raw.filterNot { it.isWhitespace() || it in "-()." }
+
+    /** An empty phone is allowed (it means "no phone"). */
+    fun isValidPhone(raw: String): Boolean = cleanPhone(raw).let { it.isEmpty() || phoneRegex.matches(it) }
+
+    /** "@durov" or "https://t.me/durov" -> "durov" */
+    fun cleanTelegramUsername(raw: String): String =
+        raw.trim().removePrefix("https://").removePrefix("http://").removePrefix("t.me/").removePrefix("@")
+
+    private val telegramRegex = Regex("^[A-Za-z][A-Za-z0-9_]{3,31}$")
+    fun isValidTelegramUsername(raw: String): Boolean =
+        cleanTelegramUsername(raw).let { it.isEmpty() || telegramRegex.matches(it) }
 }
 
 object Security {

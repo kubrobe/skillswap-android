@@ -15,8 +15,21 @@ data class User(
     val email: String,
     val passwordHash: String,          // never store the plain password!
     val bio: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    // ---- profile (all from the server) ----
+    val username: String? = null,          // "@username" without the "@". "" = not chosen yet, null = an old server did not send it
+    val faculty: String = "",
+    val studyYear: Int = 0,                // 1..4, 0 = not set
+    val languages: String = "",            // "Uzbek, English" (a comma-separated list)
+    // Telegram username and phone are sent ONLY when the server's privacy rule allows it for me.
+    val telegramUsername: String? = null,
+    val phone: String? = null,
+    val contactsHidden: Boolean = false,   // true = this person has contacts I may not see (yet)
+    val contactVisibility: String? = null  // my own setting: everyone / matches / nobody (null for other people)
 )
+
+/** "Uzbek, English" -> ["Uzbek", "English"] */
+fun User.languageList(): List<String> = languages.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
 /** A skill in the catalogue, e.g. "Python basics" (category "Tech"). */
 @Entity(tableName = "skills", indices = [Index(value = ["name"], unique = true)])
@@ -119,7 +132,8 @@ data class OfferCard(
     val reviewCount: Int,
     val freeSlots: Int,
     val trusted: Boolean,
-    val skillId: Long = 0
+    val skillId: Long = 0,
+    val teacherUsername: String? = null
 )
 
 /** One row of "My lessons". */
@@ -134,7 +148,16 @@ data class BookingLine(
     val day: Int,
     val hour: Int,
     val myRating: Int?,
-    val checkinCode: String?
+    val checkinCode: String?,
+    val teacherUsername: String? = null,
+    val learnerUsername: String? = null,
+    // contacts of the two people, already filtered by the server's privacy rule
+    val teacherTelegram: String? = null,
+    val teacherPhone: String? = null,
+    val teacherContactsHidden: Boolean = false,
+    val learnerTelegram: String? = null,
+    val learnerPhone: String? = null,
+    val learnerContactsHidden: Boolean = false
 )
 
 data class ReviewLine(

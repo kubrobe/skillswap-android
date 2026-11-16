@@ -21,6 +21,10 @@ import uz.skillswap.app.data.remote.ApiException
 import uz.skillswap.app.data.remote.AuthResult
 import uz.skillswap.app.data.remote.Match
 import uz.skillswap.app.data.remote.OfflineException
+import uz.skillswap.app.data.remote.AuthConfig
+import uz.skillswap.app.data.remote.ProfileEdit
+import uz.skillswap.app.data.remote.TelegramLoginStart
+import uz.skillswap.app.data.remote.UsernameCheck
 import uz.skillswap.app.data.remote.RoomPresence
 import org.json.JSONObject
 import uz.skillswap.app.data.remote.Snapshot
@@ -223,6 +227,24 @@ class SkillSwapRepository(
 
     suspend fun googleClientId(): String? = try { api.googleClientId() } catch (e: Exception) { null }
 
+    /** Which login buttons the server supports (nothing when it cannot be reached: the buttons stay hidden). */
+    suspend fun authConfig(): AuthConfig = try { api.authConfig() } catch (e: Exception) { AuthConfig(null, false) }
+
+    // ---------- Continue with Telegram ----------
+    /** Step 1: the one-time link that opens the SkillSwap bot. Throws the server's message when the bot is off. */
+    suspend fun telegramLoginStart(): TelegramLoginStart = api.telegramLoginStart()
+
+    /**
+     * Step 2, called every 2 seconds: "pending", "expired", or "confirmed". On "confirmed" the session is
+     * already started here (the same way as after a normal login), so the caller only has to move on.
+     */
+    suspend fun telegramLoginCheck(loginToken: String): String {
+        val r = api.telegramLoginStatus(loginToken)
+        val auth = r.auth
+        if (r.status == "confirmed" && auth != null) startOnlineSession(auth)
+        return r.status
+    }
+
     private suspend fun startOnlineSession(auth: AuthResult): User {
         saveToken(auth.token)
         prefs.edit().putLong(KEY_USER_ID, auth.user.id).apply()
@@ -252,6 +274,48 @@ class SkillSwapRepository(
         return Result.success(Unit)
     }
 
+    /** Save the whole profile (name, bio, @username, Telegram, phone, faculty, year, languages, who sees contacts). */
+    suspend fun saveProfile(edit: ProfileEdit): Result<Unit> {
+        if (edit.fullName.trim().length < 2) return Result.failure(IllegalArgumentException("Name is too short"))
+        return saveMe { api.saveProfile(it, edit) }
+    }
+
+    /** Save only the @username (first login). */
+    suspend fun saveUsername(username: String): Result<Unit> = saveMe { api.saveUsername(it, username) }
+
+    /** Sends a profile change; the server answers with the saved profile, which replaces my row in the cache. */
+    private suspend fun saveMe(send: suspend (String) -> User): Result<Unit> {
+        requireUserId()
+        val t = token ?: return Result.failure(IllegalStateException("Please log in first"))
+        val saved = try {
+            send(t)
+        } catch (e: ApiException) {
+            if (e.status == 401) {
+                expireSession()
+                return Result.failure(IllegalStateException(SESSION_EXPIRED))
+            }
+            return Result.failure(e)
+        } catch (e: OfflineException) {
+            return Result.failure(e)
+        }
+        db.userDao().update(saved)                // an UPDATE: my offers and bookings in the cache stay
+        _currentUser.value = db.userDao().findById(saved.id) ?: saved
+        return Result.success(Unit)
+    }
+
+    /** Live check for the @username field. Null = could not ask the server (offline): the field shows nothing. */
+    suspend fun usernameAvailable(username: String): UsernameCheck? {
+        val t = token ?: return null
+        return try { api.usernameAvailable(t, username) } catch (e: Exception) { null }
+    }
+
+    /** One person from the cache, live (contacts of a teacher or learner). */
+    fun person(id: Long): Flow<User?> = db.userDao().observe(id).distinctUntilChanged()
+
+    /** "Pick your @username" is shown once per account on this phone. */
+    fun usernamePromptSeen(userId: Long): Boolean = prefs.getBoolean("username_prompt_$userId", false)
+    fun markUsernamePromptSeen(userId: Long) = prefs.edit().putBoolean("username_prompt_$userId", true).apply()
+
     suspend fun logout() {
         val t = token
         if (t != null) {
@@ -278,8 +342,15 @@ class SkillSwapRepository(
     // ---------- catalogue (always read from Room) ----------
     // .distinctUntilChanged(): every sync rewrites all tables, so Room re-runs every query; only results that
     // really changed reach the screens (before, every sync rebuilt every visible list).
-    fun offers(query: String, category: String?): Flow<List<OfferCard>> =
-        db.offerDao().search(query.trim(), category).distinctUntilChanged()
+    // "@aziza" searches by username only; any other text also matches skill names, teacher names and usernames.
+    fun offers(query: String, category: String?): Flow<List<OfferCard>> {
+        val q = query.trim()
+        return if (q.startsWith("@")) {
+            db.offerDao().searchByUsername(q.removePrefix("@").trim().lowercase(), category).distinctUntilChanged()
+        } else {
+            db.offerDao().search(q, category).distinctUntilChanged()
+        }
+    }
 
     fun categories(): Flow<List<String>> = db.skillDao().categories().distinctUntilChanged()
     fun skills(): Flow<List<Skill>> = db.skillDao().observeAll().distinctUntilChanged()

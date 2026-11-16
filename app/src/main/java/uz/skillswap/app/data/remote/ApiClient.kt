@@ -19,6 +19,7 @@ import uz.skillswap.app.data.User
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 /** The server answered with an error, e.g. 409 "Sorry, this time was just booked by someone else". */
 class ApiException(val status: Int, message: String) : Exception(message)
@@ -59,6 +60,24 @@ class Badge(val id: String, val progress: Int, val goal: Int) {
 }
 class LeaderRow(val id: Long, val name: String, val lessons: Int, val rating: Double, val emoji: String)
 class Achievements(val badges: List<Badge>, val week: List<LeaderRow>, val allTime: List<LeaderRow>, val me: Long)
+
+/** What the login screen may show: Google (needs the client id) and "Continue with Telegram". */
+class AuthConfig(val googleClientId: String?, val telegramLogin: Boolean)
+
+/** Step 1 of "Continue with Telegram": the link to open and the one-time token to ask the server with. */
+class TelegramLoginStart(val token: String, val url: String, val expiresIn: Int)
+
+/** Step 2: "pending", "expired" or "confirmed" (then [auth] is the normal login result). */
+class TelegramLoginStatus(val status: String, val auth: AuthResult?)
+
+/** Everything on the profile that the user can edit. */
+class ProfileEdit(
+    val fullName: String, val bio: String, val username: String, val telegramUsername: String, val phone: String,
+    val faculty: String, val studyYear: Int, val languages: List<String>, val contactVisibility: String
+)
+
+/** Answer of the live @username check; [reason] is the server's English explanation when it is not available. */
+class UsernameCheck(val username: String, val available: Boolean, val reason: String?)
 
 /** Telegram bot: is it set up on the server, and is this account linked to a chat. */
 class TelegramStatus(val configured: Boolean, val linked: Boolean)
@@ -117,6 +136,29 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
     suspend fun googleClientId(): String? =
         request("GET", "/config", null).optString("googleClientId", "").takeIf { it.isNotBlank() && it != "null" }
 
+    /** One request for both login buttons (the old [googleClientId] is kept for callers that only need Google). */
+    suspend fun authConfig(): AuthConfig {
+        val o = request("GET", "/config", null)
+        return AuthConfig(
+            googleClientId = o.optString("googleClientId", "").takeIf { it.isNotBlank() && it != "null" },
+            telegramLogin = o.optBoolean("telegramLogin", false)
+        )
+    }
+
+    // ---------- Continue with Telegram (bot deep-link flow) ----------
+    /** Asks the server for a one-time link t.me/<bot>?start=login_<token> (valid 5 minutes). */
+    suspend fun telegramLoginStart(): TelegramLoginStart {
+        val o = request("POST", "/auth/telegram/start", null, JSONObject())
+        return TelegramLoginStart(o.getString("token"), o.getString("url"), o.optInt("expiresIn", 300))
+    }
+
+    /** Did the person tap Start in Telegram yet? When "confirmed", the answer carries the session like a normal login. */
+    suspend fun telegramLoginStatus(loginToken: String): TelegramLoginStatus {
+        val o = request("GET", "/auth/telegram/status?token=" + URLEncoder.encode(loginToken, "UTF-8"), null)
+        val status = o.optString("status", "pending")
+        return TelegramLoginStatus(status, if (status == "confirmed") auth(o) else null)
+    }
+
     suspend fun logout(token: String) {
         request("POST", "/logout", token)
     }
@@ -124,6 +166,32 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
     suspend fun updateProfile(token: String, fullName: String, bio: String): User =
         user(request("POST", "/me", token, JSONObject().put("fullName", fullName).put("bio", bio))
             .getJSONObject("user"))
+
+    /** Saves the whole profile. The server checks every field and answers with the saved profile. */
+    suspend fun saveProfile(token: String, p: ProfileEdit): User {
+        val langs = JSONArray()
+        p.languages.forEach { langs.put(it) }
+        val body = JSONObject()
+            .put("fullName", p.fullName).put("bio", p.bio).put("username", p.username)
+            .put("telegramUsername", p.telegramUsername).put("phone", p.phone)
+            .put("faculty", p.faculty).put("studyYear", p.studyYear).put("languages", langs)
+            .put("contactVisibility", p.contactVisibility)
+        return user(request("POST", "/me", token, body).getJSONObject("user"))
+    }
+
+    /** Only the @username (the "Pick your @username" screen). */
+    suspend fun saveUsername(token: String, username: String): User =
+        user(request("POST", "/me", token, JSONObject().put("username", username)).getJSONObject("user"))
+
+    /** Live check while typing: is this @username free? */
+    suspend fun usernameAvailable(token: String, username: String): UsernameCheck {
+        val o = request("GET", "/users/username-available?u=" + URLEncoder.encode(username, "UTF-8"), token)
+        return UsernameCheck(
+            username = o.optString("username", username),
+            available = o.optBoolean("available", false),
+            reason = if (o.isNull("reason")) null else o.optString("reason")
+        )
+    }
 
     // ---------- data ----------
     suspend fun sync(token: String): Snapshot {
@@ -421,8 +489,22 @@ class ApiClient(private val baseUrl: String = BASE_URL) {
     private fun user(o: JSONObject) = User(
         id = o.getLong("id"), fullName = o.getString("fullName"), email = o.getString("email"),
         passwordHash = "",                      // the server keeps the bcrypt hash, the phone never needs it
-        bio = o.optString("bio", "")
+        bio = o.optString("bio", ""),
+        // null = the server is older than this app and did not send the field (then the app never asks for one)
+        username = if (o.has("username") && !o.isNull("username")) o.getString("username") else null,
+        faculty = if (o.isNull("faculty")) "" else o.optString("faculty", ""),
+        studyYear = o.optInt("studyYear", 0),
+        languages = o.optJSONArray("languages")?.let { a -> (0 until a.length()).joinToString(", ") { a.optString(it) } } ?: "",
+        // The server sends these two only when its privacy rule allows it for me; otherwise they are null.
+        telegramUsername = text(o, "telegramUsername"),
+        phone = text(o, "phone"),
+        contactsHidden = o.optBoolean("contactsHidden", false),
+        contactVisibility = text(o, "contactVisibility")
     )
+
+    /** A JSON string, or null when it is missing, null or empty. */
+    private fun text(o: JSONObject, key: String): String? =
+        if (o.isNull(key)) null else o.optString(key, "").takeIf { it.isNotBlank() }
 
     private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
 

@@ -257,6 +257,14 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
             ) {
+                // Search by @username: switches the "@" at the start of the search text on and off
+                item {
+                    Pill("@username", searchText.startsWith("@"), {
+                        val next = if (searchText.startsWith("@")) searchText.removePrefix("@") else "@" + searchText
+                        searchText = next
+                        vm.query.value = next
+                    })
+                }
                 item { Pill(tr.all, selected == null, { vm.category.value = null }) }
                 items(categories) { c -> Pill(c, selected == c, { vm.category.value = c }) }
             }
@@ -323,6 +331,7 @@ fun OfferRow(offer: OfferCard, highlight: String = "", onClick: () -> Unit) {
                 Text(
                     buildAnnotatedString {
                         append(tr.byTeacher(offer.teacherName))
+                        if (!offer.teacherUsername.isNullOrBlank()) append("  @" + offer.teacherUsername)
                         if (offer.trusted) withStyle(SpanStyle(color = Green, fontWeight = FontWeight.SemiBold)) { append("  " + tr.trusted) }
                     },
                     style = MaterialTheme.typography.bodySmall,

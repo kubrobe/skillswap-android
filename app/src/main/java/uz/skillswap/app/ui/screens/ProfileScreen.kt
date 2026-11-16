@@ -36,11 +36,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -104,8 +102,23 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
             }
             Spacer(Modifier.height(8.dp))
             Text(name, style = MaterialTheme.typography.headlineSmall, color = Color.White)
-            Text(user?.email ?: "", style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.85f))
+            val handle = user?.username
+            if (!handle.isNullOrBlank()) {
+                Text("@$handle", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+            }
+            // a Telegram-only account has no real e-mail (the server stores a placeholder): do not show that
+            val email = user?.email ?: ""
+            if (!email.endsWith("@telegram.skillswap")) {
+                Text(email, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+            }
+            val studies = listOfNotNull(
+                user?.faculty?.takeIf { it.isNotBlank() },
+                user?.studyYear?.takeIf { it > 0 }?.let { tr.yearN(it) },
+                user?.languages?.takeIf { it.isNotBlank() }
+            ).joinToString("  ·  ")
+            if (studies.isNotEmpty()) {
+                Text(studies, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
+            }
             val bio = user?.bio ?: ""
             Text(if (bio.isBlank()) tr.noBio else bio,
                 style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
@@ -264,12 +277,9 @@ fun ProfileScreen(vm: SkillSwapViewModel, onLoggedOut: () -> Unit, onImpact: () 
         }
     }
 
-    if (editing) {
-        EditProfileDialog(
-            startName = name, startBio = user?.bio ?: "",
-            onSave = { n, b, onError -> vm.updateProfile(n, b) { err -> if (err == null) editing = false else onError(err) } },
-            onDismiss = { editing = false }
-        )
+    val editUser = user
+    if (editing && editUser != null) {
+        ProfileEditor(vm, editUser, onDismiss = { editing = false })      // ui/screens/ProfileEditing.kt
     }
 }
 
@@ -292,6 +302,7 @@ private fun TelegramCard(vm: SkillSwapViewModel) {
                 vm.loadTelegram()
                 if (vm.telegram.value?.linked == true) {
                     waiting = false
+                    vm.refresh()                 // the server just saved my Telegram username: show it in the profile
                     return@LaunchedEffect
                 }
             }
@@ -352,33 +363,6 @@ private fun RowScope.StatCard(value: Int, label: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-}
-
-@Composable
-private fun EditProfileDialog(
-    startName: String, startBio: String,
-    onSave: (String, String, (String) -> Unit) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var name by remember { mutableStateOf(startName) }
-    var bio by remember { mutableStateOf(startBio) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val tr = LocalStrings.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tr.editProfile) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text(tr.fullName) },
-                    singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(bio, { bio = it }, label = { Text(tr.shortBio) },
-                    shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = { TextButton(onClick = { onSave(name, bio) { e -> error = e } }) { Text(tr.save) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr.close) } }
-    )
 }
 
 private fun walletLabel(h: WalletLine, tr: Strings): String = when (h.reason) {

@@ -107,6 +107,7 @@ import uz.skillswap.app.ui.screens.HomeScreen
 import uz.skillswap.app.ui.screens.ImpactScreen
 import uz.skillswap.app.ui.screens.LessonsScreen
 import uz.skillswap.app.ui.screens.LoginScreen
+import uz.skillswap.app.ui.screens.PickUsernameScreen
 import uz.skillswap.app.ui.screens.ProfileScreen
 import uz.skillswap.app.ui.screens.RegisterScreen
 import uz.skillswap.app.ui.screens.SwipeScreen
@@ -327,6 +328,12 @@ fun AppNavHost(vm: SkillSwapViewModel) {
     // (never over a running video lesson: the call has its own connection states)
     if (user != null && sync.problem != null && currentRoute != Routes.CALL) {
         NoConnectionScreen(message = sync.problem ?: "", retrying = sync.syncing, onRetry = { vm.refresh() })
+    }
+    // First login without an @username: ask for one, once ("Later" closes it; the profile can set it any time).
+    val needsUsername by vm.needsUsername.collectAsStateWithLifecycle()
+    if (user != null && needsUsername && sync.problem == null &&
+        currentRoute != Routes.CALL && currentRoute != Routes.LOGIN && currentRoute != Routes.REGISTER) {
+        PickUsernameScreen(vm)
     }
     CoinFlyOverlay(vm.coins)
     LevelUpOverlay(vm.levelUp, onShown = { vm.celebrate() })

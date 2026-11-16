@@ -7,6 +7,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.asSharedFlow
 import uz.skillswap.app.data.remote.Achievements
 import uz.skillswap.app.data.remote.TelegramStatus
+import uz.skillswap.app.data.remote.ProfileEdit
+import uz.skillswap.app.data.remote.UsernameCheck
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import uz.skillswap.app.data.remote.MatchResult
 import uz.skillswap.app.data.remote.Galaxy
 import java.util.Locale
@@ -157,13 +161,100 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
         onResult(error)
     }
 
-    // Sign in with Google: the button appears only when the server has a Google client id
+    // Sign in with Google: the button appears only when the server has a Google client id.
+    // Continue with Telegram: the button appears only when the server's bot is set up.
     private val _googleClientId = MutableStateFlow<String?>(null)
     val googleClientId: StateFlow<String?> = _googleClientId.asStateFlow()
+    private val _telegramLogin = MutableStateFlow(false)
+    val telegramLogin: StateFlow<Boolean> = _telegramLogin.asStateFlow()
     fun loadGoogleConfig() {
-        if (_googleClientId.value == null) viewModelScope.launch { _googleClientId.value = repo.googleClientId() }
+        if (_googleClientId.value != null && _telegramLogin.value) return
+        viewModelScope.launch {
+            val config = repo.authConfig()
+            if (config.googleClientId != null) _googleClientId.value = config.googleClientId
+            if (config.telegramLogin) _telegramLogin.value = true
+        }
     }
     init { loadGoogleConfig() }
+
+    // ---------- Continue with Telegram ----------
+    // 1. ask the server for a one-time link  2. the screen opens it (Telegram: tap Start)
+    // 3. ask the server every 2 seconds, for at most 5 minutes, whether that happened.
+    // The waiting lives here (not in the screen) so it keeps going while the user is in the Telegram app.
+    private val _telegramLoginUi = MutableStateFlow(TelegramLoginUi())
+    val telegramLoginUi: StateFlow<TelegramLoginUi> = _telegramLoginUi.asStateFlow()
+    private var telegramLoginJob: Job? = null
+
+    fun loginWithTelegram() {
+        if (telegramLoginJob?.isActive == true) return
+        telegramLoginJob = viewModelScope.launch {
+            _telegramLoginUi.value = TelegramLoginUi(waiting = true)
+            try {
+                val start = repo.telegramLoginStart()
+                _telegramLoginUi.value = TelegramLoginUi(waiting = true, link = start.url, openLink = true)
+                val deadline = System.currentTimeMillis() + start.expiresIn.coerceIn(30, 300) * 1000L
+                while (true) {
+                    delay(2_000)
+                    // a short network problem (e.g. while switching apps) is not an error: ask again
+                    val status = try { repo.telegramLoginCheck(start.token) } catch (e: CancellationException) { throw e } catch (e: Exception) { "pending" }
+                    if (status == "confirmed") {
+                        startLive()
+                        _telegramLoginUi.value = TelegramLoginUi(done = true)
+                        return@launch
+                    }
+                    if (status == "expired" || System.currentTimeMillis() > deadline) {
+                        _telegramLoginUi.value = TelegramLoginUi(expired = true)
+                        return@launch
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _telegramLoginUi.value = TelegramLoginUi(error = e.message ?: "Telegram login is not available")
+            }
+        }
+    }
+
+    /** The screen opened the link: do not open it again after a rotation. */
+    fun telegramLinkOpened() {
+        _telegramLoginUi.value = _telegramLoginUi.value.copy(openLink = false)
+    }
+
+    /** Cancel was tapped, or the screen has moved on after a successful login. */
+    fun resetTelegramLogin() {
+        telegramLoginJob?.cancel()
+        telegramLoginJob = null
+        _telegramLoginUi.value = TelegramLoginUi()
+    }
+
+    // ---------- @username ----------
+    // "Pick your @username": once per account, right after the first login, while the username is still empty.
+    private val usernameSkipped = MutableStateFlow<Set<Long>>(emptySet())
+    val needsUsername: StateFlow<Boolean> = combine(currentUser, usernameSkipped) { u, skipped ->
+        u != null && u.username != null && u.username.isBlank() && u.id !in skipped && !repo.usernamePromptSeen(u.id)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun skipUsername() {
+        val id = currentUser.value?.id ?: return
+        repo.markUsernamePromptSeen(id)
+        usernameSkipped.value = usernameSkipped.value + id
+    }
+
+    fun saveUsername(username: String, onResult: (String?) -> Unit) = viewModelScope.launch {
+        val error = runCatching { repo.saveUsername(username).getOrThrow() }.exceptionOrNull()?.message
+        if (error == null) currentUser.value?.id?.let { repo.markUsernamePromptSeen(it) }
+        onResult(error)
+    }
+
+    /** Is this @username free? Null = the server could not be asked. */
+    suspend fun usernameAvailable(username: String): UsernameCheck? = repo.usernameAvailable(username)
+
+    fun saveProfile(edit: ProfileEdit, onResult: (String?) -> Unit) = viewModelScope.launch {
+        onResult(runCatching { repo.saveProfile(edit).getOrThrow() }.exceptionOrNull()?.message)
+    }
+
+    /** One person from the cache (their @username and, if the server allowed it, their contacts). */
+    fun person(id: Long): Flow<User?> = repo.person(id)
 
     fun loginWithGoogle(idToken: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         val error = runCatching { repo.loginWithGoogle(idToken).getOrThrow() }.exceptionOrNull()?.message
@@ -344,6 +435,16 @@ class SkillSwapViewModel(private val repo: SkillSwapRepository) : ViewModel() {
     ) = viewModelScope.launch {
         onResult(runCatching { repo.createOffer(skillId, level, description, slots) }.exceptionOrNull()?.message)
     }
+
+    /** What the "Continue with Telegram" button shows. */
+    data class TelegramLoginUi(
+        val waiting: Boolean = false,       // the link is open, we are asking the server
+        val link: String? = null,           // the t.me link (also shown as "Open Telegram again")
+        val openLink: Boolean = false,      // true once: the screen should open [link] now
+        val expired: Boolean = false,       // 5 minutes passed without Start
+        val error: String? = null,
+        val done: Boolean = false           // logged in: the screen moves on
+    )
 
     companion object {
         val Factory = viewModelFactory {
