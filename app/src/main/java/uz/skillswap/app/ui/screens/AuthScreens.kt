@@ -61,6 +61,10 @@ import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
+import androidx.compose.material3.ButtonDefaults
+import uz.skillswap.app.ui.components.AppIcon
+import uz.skillswap.app.ui.components.TelegramBlue
+import uz.skillswap.app.ui.components.openInTelegram
 
 @Composable
 fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick: () -> Unit) {
@@ -72,7 +76,7 @@ fun LoginScreen(vm: SkillSwapViewModel, onLoggedIn: () -> Unit, onRegisterClick:
     val lang by vm.lang.collectAsStateWithLifecycle()
 
     AuthLayout(title = tr.welcomeBack, subtitle = tr.loginSubtitle) {
-        GoogleSignIn(vm, onError = { error = it }, onSignedIn = onLoggedIn)
+        SocialSignIn(vm, onError = { error = it }, onSignedIn = onLoggedIn)
         OutlinedTextField(
             value = email, onValueChange = { email = it }, label = { Text(tr.email) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
@@ -124,7 +128,7 @@ fun RegisterScreen(vm: SkillSwapViewModel, onRegistered: () -> Unit, onBack: () 
     val tr = LocalStrings.current
 
     AuthLayout(title = tr.createAccount, subtitle = tr.takes20s) {
-        GoogleSignIn(vm, onError = { error = it }, onSignedIn = onRegistered)
+        SocialSignIn(vm, onError = { error = it }, onSignedIn = onRegistered)
         OutlinedTextField(name, { name = it }, label = { Text(tr.fullName) },
             singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
         OutlinedTextField(email, { email = it }, label = { Text(tr.email) },
@@ -180,7 +184,83 @@ private fun AuthLayout(title: String, subtitle: String, content: @Composable () 
 }
 
 /**
- * "Continue with Google" + an "or" line. Shown only when the server has a Google client id.
+ * The buttons above the e-mail form: Google, then Telegram under it, then one "or" line.
+ * Each button appears only when the server is set up for it; with neither, nothing is drawn.
+ */
+@Composable
+private fun SocialSignIn(vm: SkillSwapViewModel, onError: (String?) -> Unit, onSignedIn: () -> Unit) {
+    val googleClientId by vm.googleClientId.collectAsStateWithLifecycle()
+    val telegram by vm.telegramLogin.collectAsStateWithLifecycle()
+    GoogleSignIn(vm, onError, onSignedIn)
+    if (telegram) TelegramSignIn(vm, onError, onSignedIn)
+    if (googleClientId != null || telegram) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            HorizontalDivider(Modifier.weight(1f))
+            Text(LocalStrings.current.orWord, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp))
+            HorizontalDivider(Modifier.weight(1f))
+        }
+    }
+}
+
+/**
+ * "Continue with Telegram" (Telegram-blue). Telegram's own login widget only works on websites, so the app
+ * uses the SkillSwap bot: the server gives a one-time link t.me/<bot>?start=login_<token>, this opens it,
+ * the user taps Start in Telegram and comes back, and the app is logged in (the view model asks the server
+ * every 2 seconds, for at most 5 minutes). A new Telegram user gets a new account with welcome credits.
+ */
+@Composable
+private fun TelegramSignIn(vm: SkillSwapViewModel, onError: (String?) -> Unit, onSignedIn: () -> Unit) {
+    val ui by vm.telegramLoginUi.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val tr = LocalStrings.current
+    val link = ui.link
+
+    LaunchedEffect(ui.openLink, link) {                  // open Telegram once per login attempt
+        if (ui.openLink && link != null) {
+            vm.telegramLinkOpened()
+            openInTelegram(context, link)
+        }
+    }
+    LaunchedEffect(ui.done) {
+        if (ui.done) {
+            vm.resetTelegramLogin()
+            onSignedIn()
+        }
+    }
+    LaunchedEffect(ui.error, ui.expired) {
+        if (ui.error != null) onError(ui.error) else if (ui.expired) onError(tr.telegramLoginExpired)
+    }
+
+    Button(
+        onClick = { onError(null); vm.loginWithTelegram() },
+        enabled = !ui.waiting,
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = TelegramBlue, contentColor = Color.White,
+            disabledContainerColor = TelegramBlue.copy(alpha = 0.55f), disabledContentColor = Color.White
+        ),
+        modifier = Modifier.fillMaxWidth().height(54.dp)
+    ) {
+        if (ui.waiting) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White)
+        else {
+            AppIcon("plane", size = 20.dp, tint = Color.White)
+            Spacer(Modifier.width(10.dp))
+            Text(tr.continueTelegram)
+        }
+    }
+    if (ui.waiting) {
+        Text(tr.telegramLoginWaiting, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (link != null) TextButton(onClick = { openInTelegram(context, link) }) { Text(tr.openTelegramAgain) }
+            TextButton(onClick = { vm.resetTelegramLogin() }) { Text(tr.cancel) }
+        }
+    }
+}
+
+/**
+ * "Continue with Google". Shown only when the server has a Google client id.
  * Android's Credential Manager shows the Google account sheet; Google returns a signed ID token for our
  * server's client id; the server checks it and logs in (or creates) the SkillSwap account.
  * The same account works on the website (linked by the Google account and its verified email).
@@ -220,12 +300,6 @@ private fun GoogleSignIn(vm: SkillSwapViewModel, onError: (String?) -> Unit, onS
             Spacer(Modifier.width(10.dp))
             Text(tr.continueGoogle, color = MaterialTheme.colorScheme.onSurface)
         }
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        HorizontalDivider(Modifier.weight(1f))
-        Text(tr.orWord, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 12.dp))
-        HorizontalDivider(Modifier.weight(1f))
     }
 }
 
