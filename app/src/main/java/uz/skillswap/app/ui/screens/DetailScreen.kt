@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 import uz.skillswap.app.ui.SkillSwapViewModel
 import uz.skillswap.app.ui.components.AppCard
 import uz.skillswap.app.ui.components.BookedCelebration
+import uz.skillswap.app.ui.components.ContactButtons
 import uz.skillswap.app.ui.components.GradientHeader
 import uz.skillswap.app.ui.components.Green
 import uz.skillswap.app.ui.components.SectionTitle
@@ -68,6 +69,10 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
     val offer by remember(offerId) { vm.offer(offerId) }.collectAsStateWithLifecycle(null)
     val slots by remember(offerId) { vm.slots(offerId) }.collectAsStateWithLifecycle(emptyList())
     val reviews by remember(offerId) { vm.reviews(offerId) }.collectAsStateWithLifecycle(emptyList())
+    // the teacher as a person: @username and, if the server's privacy rule allows it for me, their contacts
+    val teacherId = offer?.teacherId ?: 0L
+    val teacher by remember(teacherId) { vm.person(teacherId) }.collectAsStateWithLifecycle(null)
+    val me by vm.currentUser.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -92,6 +97,11 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                             Text(o.skillName, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                             Text(tr.byTeacher(o.teacherName), style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.85f))
+                            val handle = o.teacherUsername
+                            if (!handle.isNullOrBlank()) {
+                                Text("@$handle", style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.7f))
+                            }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -117,6 +127,17 @@ fun DetailScreen(vm: SkillSwapViewModel, offerId: Long, onBack: () -> Unit, onBo
                         SectionTitle(tr.aboutLesson)
                         Text(o.description, style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                // One-tap contact. Hidden contacts arrive as null from the server, so there is nothing to leak here.
+                val t = teacher
+                if (t != null && t.id != me?.id && (t.contactsHidden || !t.telegramUsername.isNullOrBlank() || !t.phone.isNullOrBlank())) {
+                    AppCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SectionTitle(tr.contacts)
+                            ContactButtons(t.telegramUsername, t.phone, t.contactsHidden)
+                        }
                     }
                 }
 

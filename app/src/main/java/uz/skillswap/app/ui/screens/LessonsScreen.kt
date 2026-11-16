@@ -77,6 +77,7 @@ import uz.skillswap.app.ui.components.Red
 import uz.skillswap.app.ui.components.SectionTitle
 import uz.skillswap.app.ui.components.SmallPill
 import uz.skillswap.app.ui.components.StarRow
+import uz.skillswap.app.ui.components.ContactButtons
 import uz.skillswap.app.ui.theme.BrandStart
 import uz.skillswap.app.ui.theme.Lavender
 import uz.skillswap.app.util.formatDate
@@ -249,9 +250,23 @@ private fun LessonCard(
                 if (learnMode) tr.teacherIs(b.teacherName) else tr.learnerIs(b.learnerName),
                 style = MaterialTheme.typography.bodyMedium
             )
+            val handle = if (learnMode) b.teacherUsername else b.learnerUsername
+            if (!handle.isNullOrBlank()) {
+                Text("@$handle", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             IconText("📅 ${tr.slot(b.day, b.hour)}   ·   ${tr.bookedOn(formatDate(b.createdAt))}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // One-tap contact with the other person of this lesson (only what the server allowed me to see).
+            if (b.status == STATUS_BOOKED || b.status == STATUS_DONE) {
+                ContactButtons(
+                    telegramUsername = if (learnMode) b.teacherTelegram else b.learnerTelegram,
+                    phone = if (learnMode) b.teacherPhone else b.learnerPhone,
+                    hidden = false,                  // already booked: a "book to see contacts" line would make no sense
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
             if (b.status == STATUS_BOOKED && waitingName != null) {
                 Button(onClick = onVideo, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     IconText("🎥 ${tr.joinWaiting(waitingName)}")
