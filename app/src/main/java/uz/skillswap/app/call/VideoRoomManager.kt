@@ -1,5 +1,6 @@
 package uz.skillswap.app.call
 
+import android.content.Intent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -35,6 +36,8 @@ data class CallUiState(
     val peer: Participant? = null,
     val peerMicOn: Boolean = true,
     val peerCameraOn: Boolean = true,
+    val peerSharingScreen: Boolean = false, // the other person is demonstrating their screen
+    val sharingScreen: Boolean = false,     // I am demonstrating my screen
     val peerLeftReason: String? = null,     // "left" / "disconnected": the other person went away during the call
     val hasMic: Boolean = false,
     val hasCamera: Boolean = false,
@@ -148,8 +151,43 @@ class VideoRoomManager(
 
     fun toggleCamera() {
         val m = media ?: return
-        if (!m.hasCamera || pausedForBackground) return
+        if (!m.hasCamera || pausedForBackground || m.sharingScreen) return
         m.setCameraEnabled(!m.cameraEnabled)
+        refreshLocal()
+        sendMediaState()
+    }
+
+    /**
+     * "Demonstrate": send my screen instead of my camera, with the permission Android's dialog returned.
+     * The same connection keeps going (only the picture changes), so nothing can drop the call here.
+     */
+    fun startScreenShare(permission: Intent) {
+        val m = media ?: return
+        if (!machine.phase.isActive || m.sharingScreen || !m.hasCamera) return
+        host.onScreenShare(true) { ok ->
+            scope.launch {
+                if (media !== m || !machine.phase.isActive || m.sharingScreen) return@launch
+                val started = ok && m.startScreenShare(permission, onStopped = { stopScreenShare() })
+                if (!started) {
+                    log("screen share could not start")
+                    host.onScreenShare(false)
+                    return@launch
+                }
+                log("screen share on")
+                link?.setOutgoingVideo(m.outgoingVideo)
+                refreshLocal()
+                sendMediaState()
+            }
+        }
+    }
+
+    /** Back to the camera (my button, or Android's "Stop sharing"). */
+    fun stopScreenShare() {
+        val m = media ?: return
+        if (!m.sharingScreen) return
+        m.stopScreenShare { link?.setOutgoingVideo(m.outgoingVideo) }
+        host.onScreenShare(false)
+        log("screen share off")
         refreshLocal()
         sendMediaState()
     }
@@ -363,7 +401,7 @@ class VideoRoomManager(
                 if (event.userId != peerId) return
                 log("peer left reason=${event.reason}")
                 closeLink()
-                _state.update { it.copy(peer = it.peer?.copy(online = false), peerLeftReason = event.reason, remoteVideo = null) }
+                _state.update { it.copy(peer = it.peer?.copy(online = false), peerLeftReason = event.reason, remoteVideo = null, peerSharingScreen = false) }
                 input(CallInput.PeerGone)
             }
             is RoomEvent.Signal -> {
@@ -404,10 +442,10 @@ class VideoRoomManager(
             }
             is SignalPayload.Answer -> link?.takeIf { it.offerer }?.acceptAnswer(p.sdp)
             is SignalPayload.Candidate -> link?.addRemoteCandidate(p)
-            is SignalPayload.Media -> _state.update { it.copy(peerMicOn = p.audio, peerCameraOn = p.video) }
+            is SignalPayload.Media -> _state.update { it.copy(peerMicOn = p.audio, peerCameraOn = p.video, peerSharingScreen = p.screen) }
             SignalPayload.Bye -> {
                 closeLink()
-                _state.update { it.copy(peerLeftReason = "left", remoteVideo = null) }
+                _state.update { it.copy(peerLeftReason = "left", remoteVideo = null, peerSharingScreen = false) }
                 input(CallInput.PeerGone)
             }
             SignalPayload.Renegotiate -> {
@@ -520,7 +558,7 @@ class VideoRoomManager(
     private fun sendMediaState() {
         val m = media ?: return
         if (link == null) return
-        enqueue(SignalPayload.Media(audio = m.hasMic && m.micEnabled, video = m.cameraEnabled))
+        enqueue(SignalPayload.Media(audio = m.hasMic && m.micEnabled, video = m.cameraEnabled || m.sharingScreen, screen = m.sharingScreen))
     }
 
     private fun refreshLocal() {
@@ -529,7 +567,8 @@ class VideoRoomManager(
             it.copy(
                 hasMic = m.hasMic, hasCamera = m.hasCamera, micOn = m.hasMic && m.micEnabled,
                 cameraOn = m.cameraEnabled, cameraPaused = pausedForBackground, frontCamera = m.frontCamera,
-                canSwitchCamera = m.canSwitchCamera, localVideo = m.localVideo, eglContext = m.eglContext
+                canSwitchCamera = m.canSwitchCamera, localVideo = m.localVideo, eglContext = m.eglContext,
+                sharingScreen = m.sharingScreen
             )
         }
     }
@@ -582,7 +621,9 @@ class VideoRoomManager(
         room = null
         audio.stop()
         host.onCallInactive()
-        _state.update { it.copy(localVideo = null, remoteVideo = null, eglContext = null, micOn = false, cameraOn = false) }
+        _state.update {
+            it.copy(localVideo = null, remoteVideo = null, eglContext = null, micOn = false, cameraOn = false, sharingScreen = false)
+        }
         val job = callJob
         callJob = null
         job?.cancel()                     // last: this may be the job we are running in

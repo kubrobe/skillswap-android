@@ -231,6 +231,10 @@ open class Strings {
     open val callCameraOff = "Turn camera off"
     open val callCameraOn = "Turn camera on"
     open val callFlip = "Switch camera"
+    open val callDemonstrate = "Demonstrate (share my screen)"
+    open val callStopDemonstrate = "Stop demonstrating"
+    open val youDemonstrate = "You are showing your screen"
+    open fun peerDemonstrating(name: String) = "$name is showing their screen"
     open val callAudio = "Sound"
     open fun audioRoute(route: String) = when (route) {
         "SPEAKER" -> "Speaker"; "EARPIECE" -> "Phone"; "HEADSET" -> "Headphones"; "BLUETOOTH" -> "Bluetooth"; else -> route
@@ -783,6 +787,10 @@ object Uz : Strings() {
     override val callCameraOff = "Kamerani oʻchirish"
     override val callCameraOn = "Kamerani yoqish"
     override val callFlip = "Kamerani almashtirish"
+    override val callDemonstrate = "Namoyish qilish (ekranni koʻrsatish)"
+    override val callStopDemonstrate = "Namoyishni toʻxtatish"
+    override val youDemonstrate = "Siz ekraningizni koʻrsatyapsiz"
+    override fun peerDemonstrating(name: String) = "$name ekranini koʻrsatmoqda"
     override val callAudio = "Ovoz"
     override fun audioRoute(route: String) = when (route) {
         "SPEAKER" -> "Karnay"; "EARPIECE" -> "Telefon"; "HEADSET" -> "Quloqchin"; "BLUETOOTH" -> "Bluetooth"; else -> route
@@ -1186,6 +1194,10 @@ object Ru : Strings() {
     override val callCameraOff = "Выключить камеру"
     override val callCameraOn = "Включить камеру"
     override val callFlip = "Сменить камеру"
+    override val callDemonstrate = "Демонстрация (показать экран)"
+    override val callStopDemonstrate = "Остановить демонстрацию"
+    override val youDemonstrate = "Вы показываете свой экран"
+    override fun peerDemonstrating(name: String) = "$name показывает свой экран"
     override val callAudio = "Звук"
     override fun audioRoute(route: String) = when (route) {
         "SPEAKER" -> "Динамик"; "EARPIECE" -> "Телефон"; "HEADSET" -> "Наушники"; "BLUETOOTH" -> "Bluetooth"; else -> route

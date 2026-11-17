@@ -2,6 +2,7 @@ package uz.skillswap.app.ui.call
 
 import android.Manifest
 import android.app.Activity
+import android.media.projection.MediaProjectionManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -287,6 +288,19 @@ private fun CallContent(call: CallUiState, tr: Strings, peerName: String, skill:
     val connected = call.phase == CallPhase.CONNECTED
     val showRemote = call.remoteVideo != null && call.peerCameraOn && connected && call.eglContext != null
 
+    // "Demonstrate": Android asks "Start recording or casting?"; yes -> the call sends my screen instead of my camera
+    val context = LocalContext.current
+    val screenPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val data = r.data
+        if (r.resultCode == Activity.RESULT_OK && data != null) vm.startScreenShare(data)
+    }
+    val onDemonstrate: () -> Unit = {
+        if (call.sharingScreen) vm.stopScreenShare()
+        else runCatching {
+            context.getSystemService(MediaProjectionManager::class.java)?.createScreenCaptureIntent()?.let { screenPermission.launch(it) }
+        }
+    }
+
     BackHandler { leaveDialog = true }
 
     // Controls hide after 5 s of a running call (more of the video); a tap brings them back.
@@ -306,7 +320,8 @@ private fun CallContent(call: CallUiState, tr: Strings, peerName: String, skill:
         // 1. the other person (or their picture while there is no video)
         val egl = call.eglContext
         if (showRemote && egl != null) {
-            VideoSurface(call.remoteVideo, egl, Modifier.fillMaxSize(), fill = true)
+            // a shared screen is shown whole (fit), a face fills the phone (crop)
+            VideoSurface(call.remoteVideo, egl, Modifier.fillMaxSize(), fill = !call.peerSharingScreen)
         } else {
             PeerStage(call, tr, peerName)
         }
@@ -336,6 +351,7 @@ private fun CallContent(call: CallUiState, tr: Strings, peerName: String, skill:
                 onMic = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); vm.toggleMic(); lastTouch = System.currentTimeMillis() },
                 onCamera = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); vm.toggleCamera(); lastTouch = System.currentTimeMillis() },
                 onFlip = { vm.switchCamera(); lastTouch = System.currentTimeMillis() },
+                onDemonstrate = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onDemonstrate(); lastTouch = System.currentTimeMillis() },
                 onRoute = { vm.selectAudioRoute(it); lastTouch = System.currentTimeMillis() },
                 onHangUp = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); leaveDialog = true })
         }
@@ -517,7 +533,15 @@ private fun SelfView(call: CallUiState, tr: Strings, egl: org.webrtc.EglBase.Con
                 }
                 .semantics { contentDescription = "self view" }
         ) {
-            if (call.cameraOn && call.localVideo != null) {
+            if (call.sharingScreen) {
+                Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    AppIcon("screen_share", size = 26.dp, tint = GoldPrimary)
+                    Spacer(Modifier.height(6.dp))
+                    Text(tr.youDemonstrate, color = CallText, style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center, maxLines = 3)
+                }
+            } else if (call.cameraOn && call.localVideo != null) {
                 VideoSurface(call.localVideo, egl, Modifier.fillMaxSize(), mirror = call.frontCamera, overlay = true, cornerRadius = 18.dp)
             } else {
                 Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.Center,
@@ -539,13 +563,16 @@ private fun SelfView(call: CallUiState, tr: Strings, egl: org.webrtc.EglBase.Con
 @Composable
 private fun Controls(
     call: CallUiState, tr: Strings,
-    onMic: () -> Unit, onCamera: () -> Unit, onFlip: () -> Unit, onRoute: (AudioRoute) -> Unit, onHangUp: () -> Unit
+    onMic: () -> Unit, onCamera: () -> Unit, onFlip: () -> Unit, onDemonstrate: () -> Unit,
+    onRoute: (AudioRoute) -> Unit, onHangUp: () -> Unit
 ) {
     val first = call.peer?.firstName ?: ""
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // small notes above the bar: they are muted, I have no microphone permission
         if (call.phase == CallPhase.CONNECTED && !call.peerMicOn && first.isNotBlank()) Note(tr.peerMuted(first), "mic_off")
         if (!call.hasMic) Note(tr.noMicNote, "mic_off")
+        if (call.sharingScreen) Note(tr.youDemonstrate, "screen_share")
+        if (call.phase == CallPhase.CONNECTED && call.peerSharingScreen && first.isNotBlank()) Note(tr.peerDemonstrating(first), "screen_share")
         Spacer(Modifier.height(10.dp))
         Row(
             Modifier.clip(RoundedCornerShape(36.dp)).background(CallSurface.copy(alpha = 0.88f))
@@ -556,10 +583,14 @@ private fun Controls(
             ControlButton(if (call.micOn) "mic" else "mic_off", if (call.micOn) tr.callMute else tr.callUnmute,
                 active = call.micOn, enabled = call.hasMic, onClick = onMic)
             ControlButton(if (call.cameraOn) "video" else "video_off", if (call.cameraOn) tr.callCameraOff else tr.callCameraOn,
-                active = call.cameraOn, enabled = call.hasCamera && !call.cameraPaused, onClick = onCamera)
-            if (call.canSwitchCamera) {
+                active = call.cameraOn, enabled = call.hasCamera && !call.cameraPaused && !call.sharingScreen, onClick = onCamera)
+            if (call.canSwitchCamera && !call.sharingScreen) {
                 ControlButton("flip_camera", tr.callFlip, active = true, enabled = call.cameraOn, onClick = onFlip)
             }
+            // "Demonstrate": the teacher (or the learner) shows their phone screen; white while it is on
+            ControlButton(if (call.sharingScreen) "screen_share_stop" else "screen_share",
+                if (call.sharingScreen) tr.callStopDemonstrate else tr.callDemonstrate,
+                active = !call.sharingScreen, enabled = call.hasCamera, onClick = onDemonstrate)
             RouteButton(call, tr, onRoute)
             // the red one
             Box(

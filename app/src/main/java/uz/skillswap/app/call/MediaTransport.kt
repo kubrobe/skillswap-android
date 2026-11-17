@@ -1,5 +1,6 @@
 package uz.skillswap.app.call
 
+import android.content.Intent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import org.webrtc.EglBase
@@ -27,6 +28,8 @@ interface PeerLink {
     suspend fun acceptOffer(sdp: String)
     suspend fun acceptAnswer(sdp: String)
     fun addRemoteCandidate(c: SignalPayload.Candidate)
+    /** Send this picture instead of the current one (camera <-> screen). Same connection: no new offer needed. */
+    fun setOutgoingVideo(track: VideoTrack?) {}
     fun close()
 }
 
@@ -50,6 +53,20 @@ interface CallMedia {
     fun setMicEnabled(on: Boolean)
     fun setCameraEnabled(on: Boolean)
     fun switchCamera(done: (Boolean) -> Unit)
+
+    // ---- "Demonstrate": send my phone screen instead of my camera ----
+    /** true while my screen is sent instead of my camera. */
+    val sharingScreen: Boolean get() = false
+    /** The picture the connection should send now: the screen while demonstrating, otherwise the camera. */
+    val outgoingVideo: VideoTrack? get() = localVideo
+    /**
+     * Starts capturing the screen with the permission Android's "Start recording or casting?" dialog returned.
+     * [onStopped] runs (on the main thread) when Android stops it (e.g. "Stop sharing" in the status bar).
+     * false = it could not start; nothing changed.
+     */
+    fun startScreenShare(permission: Intent, onStopped: () -> Unit): Boolean = false
+    /** Back to the camera. [beforeRelease] must move every connection to [outgoingVideo] (the camera again). */
+    fun stopScreenShare(beforeRelease: () -> Unit) {}
     fun connectTo(
         remoteUserId: Long, offerer: Boolean, iceServers: List<IceServerConfig>, scope: CoroutineScope,
         send: (SignalPayload) -> Unit, events: PeerEvents
@@ -76,4 +93,10 @@ interface CallHost {
     /** A call started: show the ongoing notification / keep the app alive in the background. */
     fun onCallActive(labels: CallLabels, camera: Boolean, microphone: Boolean)
     fun onCallInactive()
+    /**
+     * Demonstrating starts ([on] = true): Android 14+ needs the foreground service to declare screen capture
+     * BEFORE capturing begins, so [ready] runs only after that (with false if Android refused).
+     * [on] = false: capture ended, the service goes back to camera + microphone.
+     */
+    fun onScreenShare(on: Boolean, ready: (Boolean) -> Unit = {}) = ready(true)
 }

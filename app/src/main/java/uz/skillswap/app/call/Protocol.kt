@@ -45,7 +45,8 @@ sealed interface SignalPayload {
         override val wireType = "candidate"
     }
     /** My microphone / camera is on or off, so the other phone can show it. */
-    data class Media(val audio: Boolean, val video: Boolean) : SignalPayload { override val wireType = "media" }
+    /** [screen] = the picture I send is my phone screen ("Demonstrate"), not my camera. */
+    data class Media(val audio: Boolean, val video: Boolean, val screen: Boolean = false) : SignalPayload { override val wireType = "media" }
     data object Bye : SignalPayload { override val wireType = "bye" }
     /** "I have no connection to you, please send me a fresh offer." */
     data object Renegotiate : SignalPayload { override val wireType = "renegotiate" }
@@ -89,7 +90,7 @@ object Protocol {
             is SignalPayload.Answer -> payload.put("sdp", p.sdp)
             is SignalPayload.Candidate -> payload.put("candidate", p.candidate).put("sdpMLineIndex", p.sdpMLineIndex)
                 .put("sdpMid", p.sdpMid ?: JSONObject.NULL)
-            is SignalPayload.Media -> payload.put("audio", p.audio).put("video", p.video)
+            is SignalPayload.Media -> { payload.put("audio", p.audio).put("video", p.video); if (p.screen) payload.put("screen", true) }
             SignalPayload.Bye, SignalPayload.Renegotiate -> Unit
         }
         return JSONObject().put("id", s.id).put("to", s.to).put("type", s.payload.wireType).put("payload", payload)
@@ -106,7 +107,7 @@ object Protocol {
                 if (c.isBlank() || !o.has("sdpMLineIndex")) null
                 else SignalPayload.Candidate(if (o.isNull("sdpMid")) null else o.optString("sdpMid"), o.optInt("sdpMLineIndex"), c)
             }
-            "media" -> if (o.has("audio") && o.has("video")) SignalPayload.Media(o.optBoolean("audio"), o.optBoolean("video")) else null
+            "media" -> if (o.has("audio") && o.has("video")) SignalPayload.Media(o.optBoolean("audio"), o.optBoolean("video"), o.optBoolean("screen", false)) else null
             "bye" -> SignalPayload.Bye
             "renegotiate" -> SignalPayload.Renegotiate
             else -> null

@@ -11,6 +11,7 @@ import org.webrtc.MediaStream
 import org.webrtc.MediaStreamTrack
 import org.webrtc.PeerConnection
 import org.webrtc.RtpReceiver
+import org.webrtc.RtpSender
 import org.webrtc.RtpTransceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
@@ -38,6 +39,7 @@ class PeerSession(
 ) : PeerLink {
 
     private val pc: PeerConnection
+    private var videoSender: RtpSender? = null                      // my picture (camera or screen)
     private val pendingCandidates = mutableListOf<IceCandidate>()   // came before the remote description
     private var remoteDescriptionSet = false
     private var closed = false
@@ -100,8 +102,8 @@ class PeerSession(
         if (audio != null) pc.addTrack(audio, stream)
         else pc.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO,
             RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY))
-        val video = media.videoTrack
-        if (video != null) pc.addTrack(video, stream)
+        val video = media.outgoingVideo
+        if (video != null) videoSender = pc.addTrack(video, stream)
         else pc.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO,
             RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY))
     }
@@ -163,6 +165,13 @@ class PeerSession(
         remoteDescriptionSet = true
         pendingCandidates.forEach { pc.addIceCandidate(it) }
         pendingCandidates.clear()
+    }
+
+    /** Camera <-> screen on the same video line: the other side keeps receiving, nothing is renegotiated. */
+    override fun setOutgoingVideo(track: VideoTrack?) {
+        if (closed) return
+        val sender = videoSender ?: return
+        if (!sender.setTrack(track, false)) Log.w(TAG, "could not switch the outgoing video")
     }
 
     /** Stops the connection and frees it. Safe to call twice. */

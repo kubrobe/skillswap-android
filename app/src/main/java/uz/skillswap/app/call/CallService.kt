@@ -36,6 +36,8 @@ class CallService : Service() {
         }
         val camera = intent?.getBooleanExtra(EXTRA_CAMERA, false) == true
         val microphone = intent?.getBooleanExtra(EXTRA_MIC, false) == true
+        val screen = intent?.getBooleanExtra(EXTRA_SCREEN, false) == true
+        val ready = if (screen) pendingScreenReady.also { pendingScreenReady = null } else null
         val notification = buildNotification(
             title = intent?.getStringExtra(EXTRA_TITLE) ?: getString(R.string.app_name),
             text = intent?.getStringExtra(EXTRA_TEXT) ?: "",
@@ -46,15 +48,18 @@ class CallService : Service() {
                 var types = 0
                 if (camera) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
                 if (microphone) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-                if (types == 0) { stop(); return START_NOT_STICKY }       // no camera and no mic: nothing to keep alive
+                // "Demonstrate": Android 14+ lets an app capture the screen only from a service of this type
+                if (screen) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                if (types == 0) { ready?.invoke(false); stop(); return START_NOT_STICKY }   // nothing to keep alive
                 ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, types)
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
+            ready?.invoke(true)
         } catch (e: RuntimeException) {
             // e.g. Android 14 refuses because a permission was just revoked: the call still runs while on screen
             Log.e("VideoRoom", "foreground service refused: ${e.message}")
-            stop()
+            if (ready != null) ready(false) else stop()        // a refused screen share leaves the call service as it was
         }
         return START_NOT_STICKY
     }
@@ -112,16 +117,36 @@ class CallService : Service() {
         private const val EXTRA_HANG_UP = "hang_up"
         private const val EXTRA_CAMERA = "camera"
         private const val EXTRA_MIC = "mic"
+        private const val EXTRA_SCREEN = "screen"
 
-        fun start(context: Context, labels: CallLabels, camera: Boolean, microphone: Boolean) {
+        // the running call's notification, kept so "Demonstrate" can start the service again with screen capture added
+        private var lastLabels: CallLabels? = null
+        private var lastCamera = false
+        private var lastMic = false
+        /** Runs once the service is in the foreground WITH screen capture (true) or Android refused (false). */
+        private var pendingScreenReady: ((Boolean) -> Unit)? = null
+
+        fun start(context: Context, labels: CallLabels, camera: Boolean, microphone: Boolean, screen: Boolean = false) {
+            lastLabels = labels
+            lastCamera = camera
+            lastMic = microphone
             val intent = Intent(context, CallService::class.java)
                 .putExtra(EXTRA_TITLE, labels.title).putExtra(EXTRA_TEXT, labels.text).putExtra(EXTRA_HANG_UP, labels.hangUp)
-                .putExtra(EXTRA_CAMERA, camera).putExtra(EXTRA_MIC, microphone)
+                .putExtra(EXTRA_CAMERA, camera).putExtra(EXTRA_MIC, microphone).putExtra(EXTRA_SCREEN, screen)
             try {
                 ContextCompat.startForegroundService(context, intent)
             } catch (e: RuntimeException) {
                 Log.e("VideoRoom", "could not start the call service: ${e.message}")
+                if (screen) pendingScreenReady?.also { pendingScreenReady = null }?.invoke(false)
             }
+        }
+
+        /** [on]: add screen capture to the running call's service, then [ready]. Off: back to camera + microphone. */
+        fun screen(context: Context, on: Boolean, ready: (Boolean) -> Unit) {
+            val labels = lastLabels ?: return ready(false)
+            if (on) pendingScreenReady = ready
+            start(context, labels, lastCamera, lastMic, screen = on)
+            if (!on) ready(true)
         }
 
         fun stop(context: Context) {
@@ -136,4 +161,7 @@ class AndroidCallHost(private val context: Context) : CallHost {
         CallService.start(context.applicationContext, labels, camera, microphone)
 
     override fun onCallInactive() = CallService.stop(context.applicationContext)
+
+    override fun onScreenShare(on: Boolean, ready: (Boolean) -> Unit) =
+        CallService.screen(context.applicationContext, on, ready)
 }

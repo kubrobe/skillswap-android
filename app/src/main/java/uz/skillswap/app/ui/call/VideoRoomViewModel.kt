@@ -1,5 +1,6 @@
 package uz.skillswap.app.ui.call
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewmodel.initializer
@@ -22,6 +23,8 @@ class VideoRoomViewModel(private val calls: VideoRoomManager) : ViewModel() {
     fun toggleMic() = calls.toggleMic()
     fun toggleCamera() = calls.toggleCamera()
     fun switchCamera() = calls.switchCamera()
+    fun startScreenShare(permission: Intent) = calls.startScreenShare(permission)
+    fun stopScreenShare() = calls.stopScreenShare()
     fun selectAudioRoute(route: AudioRoute) = calls.selectAudioRoute(route)
     fun hangUp(forBoth: Boolean) = calls.hangUp(forBoth)
     fun retry() = calls.retry()

@@ -30,7 +30,8 @@ class ProtocolAndMachineTest {
         val all = listOf(
             SignalPayload.Offer("v=0 offer"), SignalPayload.Offer("v=0 restart", iceRestart = true), SignalPayload.Answer("v=0 answer"),
             SignalPayload.Candidate("0", 0, "candidate:1 1 udp 1 10.0.0.1 5000 typ host"), SignalPayload.Candidate(null, 1, "candidate:2"),
-            SignalPayload.Media(audio = false, video = true), SignalPayload.Bye, SignalPayload.Renegotiate
+            SignalPayload.Media(audio = false, video = true), SignalPayload.Media(audio = true, video = true, screen = true),
+            SignalPayload.Bye, SignalPayload.Renegotiate
         )
         for (p in all) {
             val json = Protocol.signalJson(OutgoingSignal("x", 7, p))
@@ -38,7 +39,16 @@ class ProtocolAndMachineTest {
         }
     }
 
-    @Test fun roomEvents_areParsed_andUnknownOnesIgnored() {
+    @Test fun media_screenFlag_isOnlySentWhenDemonstrating() {
+        // older apps and the website ignore unknown fields; "screen" is left out entirely when false
+        val plain = Protocol.signalJson(OutgoingSignal("s1", 1, SignalPayload.Media(audio = true, video = true))).getJSONObject("payload")
+        assertTrue(!plain.has("screen"))
+        val shared = Protocol.signalJson(OutgoingSignal("s2", 1, SignalPayload.Media(audio = true, video = true, screen = true))).getJSONObject("payload")
+        assertTrue(shared.getBoolean("screen"))
+        assertEquals(SignalPayload.Media(audio = true, video = false), Protocol.parsePayload("media", JSONObject("""{"audio":true,"video":false}""")))
+    }
+
+        @Test fun roomEvents_areParsed_andUnknownOnesIgnored() {
         val state = Protocol.parseEvent("room-state", JSONObject("""
             {"roomId":"r1","connId":3,"you":{"userId":2,"name":"Aziza Karimova","role":"learner"},
              "participants":[{"userId":1,"name":"Bobur Rakhimov","role":"teacher","online":true},

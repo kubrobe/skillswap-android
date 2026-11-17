@@ -1,6 +1,10 @@
 package uz.skillswap.app.call
 
 import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjection
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import org.webrtc.AudioSource
@@ -14,6 +18,7 @@ import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.MediaConstraints
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.ScreenCapturerAndroid
 import org.webrtc.SurfaceTextureHelper
 import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
@@ -51,7 +56,9 @@ class LocalMedia(context: Context, withAudio: Boolean, withVideo: Boolean) : Cal
     override val hasMic: Boolean get() = audioTrack != null
     override val hasCamera: Boolean get() = videoTrack != null
     override val canSwitchCamera: Boolean get() = enumerator.deviceNames.size > 1
-    override val localVideo: VideoTrack? get() = videoTrack
+    /** My small self-view: the camera; nothing while demonstrating (a picture of the screen inside the screen). */
+    override val localVideo: VideoTrack? get() = if (screenTrack != null) null else videoTrack
+    override val outgoingVideo: VideoTrack? get() = screenTrack ?: videoTrack
     override val eglContext: EglBase.Context get() = eglBase.eglBaseContext
     override val cameraEnabled: Boolean get() = videoTrack != null && capturing
 
@@ -161,10 +168,78 @@ class LocalMedia(context: Context, withAudio: Boolean, withVideo: Boolean) : Cal
         })
     }
 
+    // ---------------- "Demonstrate": the phone screen instead of the camera ----------------
+
+    private var screenCapturer: ScreenCapturerAndroid? = null
+    private var screenSource: VideoSource? = null
+    private var screenHelper: SurfaceTextureHelper? = null
+    private var screenTrack: VideoTrack? = null
+    private var cameraWasOn = false
+    override val sharingScreen: Boolean get() = screenTrack != null
+
+    override fun startScreenShare(permission: Intent, onStopped: () -> Unit): Boolean {
+        if (released) return false
+        if (screenTrack != null) return true
+        val main = Handler(Looper.getMainLooper())
+        val cap = ScreenCapturerAndroid(permission, object : MediaProjection.Callback() {
+            override fun onStop() { main.post { onStopped() } }     // "Stop sharing" in Android's status bar
+        })
+        val source = factory.createVideoSource(true)                // true = screen content (sharp text, fewer frames)
+        val helper = SurfaceTextureHelper.create("skillswap-screen", eglBase.eglBaseContext)
+        return try {
+            cap.initialize(helper, app, source.capturerObserver)
+            val (w, h) = screenSize()
+            cap.startCapture(w, h, SCREEN_FPS)
+            cameraWasOn = capturing
+            stopCapture()                                           // the camera rests while the screen is sent
+            screenCapturer = cap
+            screenSource = source
+            screenHelper = helper
+            screenTrack = factory.createVideoTrack("skillswap-screen", source)
+            true
+        } catch (e: RuntimeException) {                             // e.g. Android refused the projection
+            Log.e(TAG, "screen share failed: ${e.message}")
+            runCatching { cap.dispose() }
+            source.dispose()
+            helper.dispose()
+            false
+        }
+    }
+
+    override fun stopScreenShare(beforeRelease: () -> Unit) {
+        val track = screenTrack ?: return
+        screenTrack = null                     // outgoingVideo is the camera again ...
+        if (cameraWasOn) startCapture()
+        beforeRelease()                        // ... and every connection sends it before the screen track goes away
+        try {
+            screenCapturer?.stopCapture()
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        screenCapturer?.dispose()
+        screenCapturer = null
+        track.dispose()
+        screenSource?.dispose()
+        screenSource = null
+        screenHelper?.dispose()
+        screenHelper = null
+    }
+
+    /** The phone's screen, scaled so the long side is at most [SCREEN_MAX] (even numbers, as encoders like). */
+    private fun screenSize(): Pair<Int, Int> {
+        val dm = app.resources.displayMetrics
+        val long = maxOf(dm.widthPixels, dm.heightPixels).coerceAtLeast(1)
+        val scale = minOf(1f, SCREEN_MAX.toFloat() / long)
+        fun even(v: Int) = ((v * scale).toInt() / 2 * 2).coerceAtLeast(2)
+        return even(dm.widthPixels) to even(dm.heightPixels)
+    }
+
     /** Frees everything. Call after every PeerConnection using [factory] was disposed. Safe to call twice. */
     override fun release() {
         if (released) return
         released = true
+        cameraWasOn = false
+        stopScreenShare {}
         stopCapture()
         capturer?.dispose()
         capturer = null
@@ -187,6 +262,8 @@ class LocalMedia(context: Context, withAudio: Boolean, withVideo: Boolean) : Cal
         private const val WIDTH = 1280
         private const val HEIGHT = 720
         private const val FPS = 30
+        private const val SCREEN_MAX = 1280
+        private const val SCREEN_FPS = 15
         @Volatile private var initialized = false
 
         /** WebRTC's native library is loaded once per app process. */

@@ -393,6 +393,20 @@ object SkillIcons {
             "M15.6 10.4 L20.4 7.6 A0.6 0.6 0 0 1 21.3 8.1 V15.9 A0.6 0.6 0 0 1 20.4 16.4 L15.6 13.6" to false,
             "M3 3.6 L21 20.4" to false
         )),
+        "screen_share" to Spec(0.0f, listOf(
+            "M4.6 4.4 H19.4 A1.8 1.8 0 0 1 21.2 6.2 V15.4 A1.8 1.8 0 0 1 19.4 17.2 H4.6 A1.8 1.8 0 0 1 2.8 15.4 V6.2 A1.8 1.8 0 0 1 4.6 4.4 Z" to false,
+            "M8.4 20.4 H15.6" to false,
+            "M12 17.2 V20.4" to false,
+            "M12 13.8 V8" to false,
+            "M9.4 10.4 L12 7.8 L14.6 10.4" to false
+        )),
+        "screen_share_stop" to Spec(0.0f, listOf(
+            "M4.6 4.4 H19.4 A1.8 1.8 0 0 1 21.2 6.2 V15.4 A1.8 1.8 0 0 1 19.4 17.2 H4.6 A1.8 1.8 0 0 1 2.8 15.4 V6.2 A1.8 1.8 0 0 1 4.6 4.4 Z" to false,
+            "M8.4 20.4 H15.6" to false,
+            "M12 17.2 V20.4" to false,
+            "M9.6 8.4 L14.4 13.2" to false,
+            "M14.4 8.4 L9.6 13.2" to false
+        )),
         "flip_camera" to Spec(0.0f, listOf(
             "M6 7 H18 A3 3 0 0 1 21 10 V17 A3 3 0 0 1 18 20 H6 A3 3 0 0 1 3 17 V10 A3 3 0 0 1 6 7 Z" to false,
             "M8.3 7 L9.8 4.5 H14.2 L15.7 7" to false,
