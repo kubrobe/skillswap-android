@@ -10,13 +10,20 @@ Kotlin + Jetpack Compose (Material 3) + Room (local cache) + MVVM. The app is al
 |---|---|---|---|
 | <img src="docs/screenshots/browse.jpg" width="200" alt="Browse screen with search, live ticker and perfect matches"> | <img src="docs/screenshots/lessons.jpg" width="200" alt="My lessons screen with check-in, video, calendar and AI plan"> | <img src="docs/screenshots/teach.jpg" width="200" alt="Teach a skill screen"> | <img src="docs/screenshots/profile.jpg" width="200" alt="Profile screen with stats, reputation and member level"> |
 
-## Team
+## Authorship
 
-| Member | Group | Role |
-|---|---|---|
-| Abdullox Xojimurodov | I24B | Team leader, backend (server, database, API, live events, Telegram bot, server tests) |
-| Biloliddin To'laganov | I24B | Design (brand, screens, icon set, motion, Skill Galaxy look, slides) |
-| Najmiddin Kurganov | I24A | Android development (architecture, Room, network, screens, languages, unit tests, release APK) |
+Independent creator and sole developer: Najmiddin Kurganov. This covers this Android app and the
+website, server and database it shares ([skillswap](https://github.com/kubrobe/skillswap)).
+AI-assisted coding tools were used throughout implementation; the commit history preserves this.
+
+SkillSwap was registered as a team project for a university course and hackathon. That
+registration was for academic and hackathon participation, not shared implementation.
+
+| Registered team member | Group |
+|---|---|
+| Abdullox Xojimurodov | I24B |
+| Biloliddin To'laganov | I24B |
+| Najmiddin Kurganov | I24A |
 
 ## Requirements
 
@@ -55,7 +62,7 @@ Login, Register, Browse (search, categories, live ticker, perfect matches), Swip
 - **Badges and leaderboard:** 8 badges from real lessons, top teachers this week and all time.
 - **Telegram bot:** booking alerts, a reminder 1 hour before each lesson, `/next`, `/credits`.
 - **Languages:** English, Oʻzbekcha, Русский; the whole app switches at once.
-- **Design:** Graphite & Gold theme, our own set of 68 line icons, glass cards, animated transitions; light and dark theme follow the phone. Animations follow the phone's animation-scale setting.
+- **Design:** Graphite & Gold theme, a custom set of 68 line icons, glass cards, animated transitions; light and dark theme follow the phone. Animations follow the phone's animation-scale setting.
 
 ## Architecture
 
